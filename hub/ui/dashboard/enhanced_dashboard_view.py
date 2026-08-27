@@ -149,6 +149,7 @@ class EnhancedDashboardView(QWidget):
         layout.addLayout(self._kpi_grid)
 
         self._pending_card = KPICard("Pendientes", "0", "\U0001f4cb", WARNING)
+        self._kpis["pending"] = self._pending_card  # registrar para update_kpi()
         self._kpi_grid.addWidget(self._pending_card, 2, 0)
 
         middle = QHBoxLayout()

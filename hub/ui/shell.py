@@ -11,7 +11,7 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal, QThread
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
-    QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QStackedWidget, QVBoxLayout, QWidget, QMessageBox,
 )
 
@@ -189,26 +189,56 @@ class Shell(QWidget):
     # ------------------------------------------------------------------
     # Page construction
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Page construction — LAZY LOADING
+    # Las vistas se crean solo la primera vez que el usuario navega a ellas.
+    # ------------------------------------------------------------------
     def _build_pages(self) -> None:
-        self._pages[P_DASHBOARD] = self._create_dashboard()
-        self._pages[P_CATALOG] = self._create_catalog()
-        self._pages[P_SEARCH] = self._create_search()
-        self._pages[P_APP] = self._create_app_viewer()
-        self._pages[P_PROPOSALS] = self._create_proposals()
-        self._pages[P_REQUESTS] = self._create_requests()
-        self._pages[P_KNOWLEDGE] = self._create_knowledge()
-        self._pages[P_ISSUES] = self._create_issues()
-        self._pages[P_REPORTS] = self._create_reports()
-        self._pages[P_AUDIT] = self._create_audit()
-        self._pages[P_USERS] = self._create_users()
-        self._pages[P_COMMUNITY] = self._create_community()
-        self._pages[P_APP_AUDIT] = self._create_app_audit()
-        self._pages[P_FAILURE_DETAIL] = self._create_failure_detail()
-        self._pages[P_NOTIFICATIONS] = self._create_notifications()
+        """Registra los constructores de páginas (no las crea todavía).
 
-        for page in self._pages.values():
-            self._stack.addWidget(page)
+        Solo el Dashboard se crea de inmediato para mostrarlo al iniciar.
+        El resto se instancia bajo demanda en _get_page().
+        """
+        # Registro de fábricas: se ejecutan solo cuando se necesitan
+        self._page_factories: dict[str, Any] = {
+            P_CATALOG:        self._create_catalog,
+            P_SEARCH:         self._create_search,
+            P_APP:            self._create_app_viewer,
+            P_PROPOSALS:      self._create_proposals,
+            P_REQUESTS:       self._create_requests,
+            P_KNOWLEDGE:      self._create_knowledge,
+            P_ISSUES:         self._create_issues,
+            P_REPORTS:        self._create_reports,
+            P_AUDIT:          self._create_audit,
+            P_USERS:          self._create_users,
+            P_COMMUNITY:      self._create_community,
+            P_APP_AUDIT:      self._create_app_audit,
+            P_FAILURE_DETAIL: self._create_failure_detail,
+            P_NOTIFICATIONS:  self._create_notifications,
+        }
+
+        # Solo el Dashboard se crea eagerly (se muestra en login)
+        dashboard = self._create_dashboard()
+        self._pages[P_DASHBOARD] = dashboard
+        self._stack.addWidget(dashboard)
         self._stack.addWidget(self._access_denied_label)
+        self._stack.setCurrentWidget(dashboard)
+
+    def _get_page(self, page_key: str) -> QWidget | None:
+        """Devuelve la página, creándola si es la primera vez (lazy init)."""
+        if page_key in self._pages:
+            return self._pages[page_key]
+
+        factory = self._page_factories.get(page_key)
+        if factory is None:
+            return None
+
+        page = factory()
+        self._pages[page_key] = page
+        # Insertar antes del label de "acceso denegado" (último widget del stack)
+        self._stack.insertWidget(self._stack.count() - 1, page)
+        return page
+
 
     # --- individual page factories ---
 
@@ -466,7 +496,7 @@ class Shell(QWidget):
             self._show_access_denied()
             return
 
-        page = self._pages.get(page_key)
+        page = self._get_page(page_key)
         if page is None:
             return
 
@@ -556,37 +586,56 @@ class Shell(QWidget):
             view.set_activity(data["recent_activity"])
 
     def _load_dashboard_catalog(self) -> None:
+        view = self._get_page(P_CATALOG)
+        if view is None:
+            return
         all_plugins = self._svc.catalog.get_all()
         fav_ids = self._svc.favorites.get_favorite_ids(self._svc.user_id)
-        view = self._pages[P_CATALOG]
         view.set_plugins(all_plugins)
         if hasattr(view, "set_favorites"):
             view.set_favorites(fav_ids)
 
     def _refresh_knowledge(self) -> None:
+        view = self._get_page(P_KNOWLEDGE)
+        if view is None:
+            return
         articles = self._svc.knowledge.get_all()
-        self._pages[P_KNOWLEDGE].set_articles(articles)
+        view.set_articles(articles)
 
     def _refresh_requests(self) -> None:
+        view = self._get_page(P_REQUESTS)
+        if view is None:
+            return
         requests = self._svc.requests.get_all()
-        self._pages[P_REQUESTS].set_requests(requests)
+        view.set_requests(requests)
 
     def _refresh_audit(self) -> None:
+        view = self._get_page(P_AUDIT)
+        if view is None:
+            return
         entries = self._svc.audit.get_entries(limit=200)
         count = self._svc.audit.get_entry_count()
-        self._pages[P_AUDIT].set_entries(entries, count)
+        view.set_entries(entries, count)
 
     def _refresh_users(self) -> None:
+        view = self._get_page(P_USERS)
+        if view is None:
+            return
         users = self._svc.auth.get_all_users()
-        self._pages[P_USERS].set_users(users)
+        view.set_users(users)
 
     def _refresh_feed(self) -> None:
+        view = self._get_page(P_COMMUNITY)
+        if view is None:
+            return
         posts = self._svc.feed.get_feed(self._svc.user_id)
-        self._pages[P_COMMUNITY].set_posts(posts)
+        view.set_posts(posts)
 
     def _refresh_notifications(self) -> None:
         notifs = self._svc.notifications.get_all(self._svc.user_id)
-        self._pages[P_NOTIFICATIONS].set_notifications(notifs)
+        view = self._pages.get(P_NOTIFICATIONS)  # no forzar lazy-create desde notif badge
+        if view is not None:
+            view.set_notifications(notifs)
         count = len(notifs)
         if count > 0:
             self._notif_badge.setText(str(count))
@@ -612,7 +661,9 @@ class Shell(QWidget):
     def _on_reports_loaded(self, data) -> None:
         if data is None:
             return
-        view = self._pages[P_REPORTS]
+        view = self._pages.get(P_REPORTS)
+        if view is None:
+            return
         if hasattr(view, "set_stats"):
             view.set_stats(data["stats"])
         if hasattr(view, "set_reports"):
@@ -647,7 +698,8 @@ class Shell(QWidget):
     def _on_app_audit_loaded(self, data) -> None:
         if data is None:
             return
-        view = self._pages[P_APP_AUDIT]
+        view = self._pages.get(P_APP_AUDIT)
+
         if hasattr(view, "set_app_data"):
             view.set_app_data(data)
 
@@ -663,7 +715,9 @@ class Shell(QWidget):
     def _on_plugin_clicked(self, plugin_id_or_query: str) -> None:
         desc = self._svc.registry.get(plugin_id_or_query)
         if desc:
-            self._pages[P_APP].load_plugin(plugin_id_or_query)
+            app_page = self._get_page(P_APP)
+            if app_page:
+                app_page.load_plugin(plugin_id_or_query)
             self._navigate_to(P_APP)
             self._header_title.setText(desc.name)
             self._svc.audit.log(
@@ -672,7 +726,9 @@ class Shell(QWidget):
             )
         else:
             results = self._svc.registry.search(plugin_id_or_query)
-            self._pages[P_SEARCH].show_results(plugin_id_or_query, results)
+            search_page = self._get_page(P_SEARCH)
+            if search_page:
+                search_page.show_results(plugin_id_or_query, results)
             self._navigate_to(P_SEARCH)
             self._svc.opportunities.record_search(plugin_id_or_query, len(results))
 
@@ -681,7 +737,9 @@ class Shell(QWidget):
         if not query:
             return
         results = self._svc.registry.search(query)
-        self._pages[P_SEARCH].show_results(query, results)
+        search_page = self._get_page(P_SEARCH)
+        if search_page:
+            search_page.show_results(query, results)
         self._navigate_to(P_SEARCH)
         self._svc.metrics.record_search(query, len(results), self._svc.user_id)
         self._svc.opportunities.record_search(query, len(results))
@@ -720,8 +778,8 @@ class Shell(QWidget):
         self._svc.audit.log_create(self._svc.user_id, "requests", "request", str(req_id))
 
     def _on_audit_failure_clicked(self, failure_id: str) -> None:
-        view = self._pages[P_FAILURE_DETAIL]
-        if hasattr(view, "load_failure"):
+        view = self._get_page(P_FAILURE_DETAIL)
+        if view and hasattr(view, "load_failure"):
             view.load_failure(failure_id)
         self._navigate_to(P_FAILURE_DETAIL)
 
@@ -795,9 +853,7 @@ class Shell(QWidget):
     # ------------------------------------------------------------------
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
-        if self._current_user:
+        # Verificar que _pages esté inicializado antes de hacer refresh
+        # (puede dispararse durante la construcción del widget).
+        if self._current_user and self._pages:
             self._refresh_dashboard_bg()
-
-    def closeEvent(self, event) -> None:
-        self._svc.close()
-        super().closeEvent(event)

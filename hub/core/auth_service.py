@@ -12,6 +12,11 @@ from hub.infrastructure.database import Database
 
 logger = logging.getLogger(__name__)
 
+# Parámetros PBKDF2 — equilibrio seguridad/velocidad (OWASP mínimo: 100k)
+_PBKDF2_ITERATIONS = 150_000
+_PBKDF2_ALGO = "sha256"
+_SALT_BYTES = 32
+
 _DEFAULT_PERMISSIONS = [
     ("perm_users_read", "users", "read", "Ver usuarios"),
     ("perm_users_create", "users", "create", "Crear usuarios"),
@@ -109,8 +114,12 @@ class AuthService:
         user = self._db.fetchone("SELECT * FROM users WHERE username = ? AND is_active = 1", (username,))
         if not user:
             return None
-        if user["password_hash"] and user["password_hash"] != self._hash_password(password):
+        stored_hash: str = user["password_hash"] or ""
+        if not self._verify_password(password, stored_hash):
             return None
+        # Migración automática de hashes SHA-256 legacy → PBKDF2
+        if stored_hash and not stored_hash.startswith("pbkdf2$"):
+            self._migrate_password_hash(user["id"], password)
         now = datetime.now().isoformat()
         self._db.execute("UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?", (now, now, user["id"]))
         token = secrets.token_hex(32)
@@ -198,8 +207,26 @@ class AuthService:
             return False
         return permission_name in user.get("permissions", []) or "system.manage" in user.get("permissions", [])
 
+    # Mapa de acciones en español → inglés para compatibilidad con el shell.
+    _ACTION_ALIAS: dict[str, str] = {
+        "ver": "read",
+        "crear": "create",
+        "editar": "update",
+        "eliminar": "delete",
+        "aprobar": "approve",
+        "asignar": "assign",
+        "exportar": "export",
+        "publicar": "publish",
+        "gestionar": "manage",
+    }
+
     def check_access(self, user_id: str, module: str, action: str) -> bool:
-        perm_name = f"{module}.{action}"
+        """Verifica si el usuario tiene acceso a un módulo/acción.
+
+        Acepta tanto acciones en inglés ('read') como en español ('ver').
+        """
+        normalized = self._ACTION_ALIAS.get(action.lower(), action.lower())
+        perm_name = f"{module}.{normalized}"
         return self.has_permission(user_id, perm_name)
 
     def _load_user_full(self, user_id: str) -> dict[str, Any] | None:
@@ -235,6 +262,61 @@ class AuthService:
         )
         return [r["name"] for r in rows]
 
+    # ------------------------------------------------------------------
+    # Hashing de contraseñas — PBKDF2-HMAC-SHA256 con salt
+    # ------------------------------------------------------------------
+
     @staticmethod
     def _hash_password(password: str) -> str:
-        return hashlib.sha256(password.encode("utf-8")).hexdigest()
+        """Genera un hash PBKDF2-HMAC-SHA256 con salt aleatorio.
+
+        Formato almacenado: ``pbkdf2$iterations$salt_hex$hash_hex``
+        """
+        salt = secrets.token_hex(_SALT_BYTES)
+        dk = hashlib.pbkdf2_hmac(
+            _PBKDF2_ALGO,
+            password.encode("utf-8"),
+            bytes.fromhex(salt),
+            _PBKDF2_ITERATIONS,
+        )
+        return f"pbkdf2${_PBKDF2_ITERATIONS}${salt}${dk.hex()}"
+
+    @staticmethod
+    def _verify_password(password: str, stored_hash: str) -> bool:
+        """Verifica una contraseña contra un hash almacenado.
+
+        Soporta tanto el formato PBKDF2 nuevo como SHA-256 legacy (64 hex chars).
+        """
+        if not stored_hash:
+            return True  # Sin contraseña configurada → acceso libre
+
+        if stored_hash.startswith("pbkdf2$"):
+            try:
+                _, iterations_str, salt_hex, expected_hex = stored_hash.split("$")
+                iterations = int(iterations_str)
+                dk = hashlib.pbkdf2_hmac(
+                    _PBKDF2_ALGO,
+                    password.encode("utf-8"),
+                    bytes.fromhex(salt_hex),
+                    iterations,
+                )
+                return dk.hex() == expected_hex
+            except (ValueError, KeyError):
+                logger.warning("Hash PBKDF2 con formato inválido.")
+                return False
+        else:
+            # Hash SHA-256 legacy (64 chars hexadecimal)
+            legacy = hashlib.sha256(password.encode("utf-8")).hexdigest()
+            return stored_hash == legacy
+
+    def _migrate_password_hash(self, user_id: str, password: str) -> None:
+        """Migra un hash SHA-256 legacy al nuevo formato PBKDF2."""
+        new_hash = self._hash_password(password)
+        now = datetime.now().isoformat()
+        self._db.execute(
+            "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+            (new_hash, now, user_id),
+        )
+        self._db.commit()
+        logger.info("Hash de contraseña migrado a PBKDF2 para usuario id=%s", user_id)
+

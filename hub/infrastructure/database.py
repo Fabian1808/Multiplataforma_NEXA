@@ -524,12 +524,21 @@ class Database:
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
+            # synchronous=NORMAL: más rápido que FULL, seguro con WAL ante
+            # fallos del OS (solo puede perder la última transacción incompleta).
+            self._conn.execute("PRAGMA synchronous=NORMAL")
+            self._conn.execute("PRAGMA cache_size=-8000")   # 8 MB de caché
+            self._conn.execute("PRAGMA temp_store=MEMORY")
             self._init_schema()
             logger.info("Database conectada: %s", self._db_path)
         return self._conn
 
     def close(self) -> None:
         if self._conn:
+            try:
+                self._conn.commit()
+            except Exception:
+                pass
             self._conn.close()
             self._conn = None
 
@@ -542,12 +551,21 @@ class Database:
             return self.connect().executemany(sql, params)
 
     def fetchone(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
-        with self._lock:
-            return self.connect().execute(sql, params).fetchone()
+        try:
+            with self._lock:
+                return self.connect().execute(sql, params).fetchone()
+        except sqlite3.OperationalError:
+            logger.exception("Error en fetchone: %s", sql[:120])
+            return None
 
     def fetchall(self, sql: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
-        with self._lock:
-            return self.connect().execute(sql, params).fetchall()
+        try:
+            with self._lock:
+                return self.connect().execute(sql, params).fetchall()
+        except sqlite3.OperationalError:
+            logger.exception("Error en fetchall: %s", sql[:120])
+            return []
+
 
     def commit(self) -> None:
         if self._conn:

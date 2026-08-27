@@ -586,12 +586,20 @@ def setup_app_palette(app: QApplication) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Backward-compatible aliases for old views
+# Backward-compatible aliases — evaluados dinámicamente para respetar el tema.
+# Se usan como funciones/propiedades en vistas antiguas.
 # ---------------------------------------------------------------------------
-TEXT_PRIMARY = Theme.text()
-TEXT_SECONDARY = Theme.text_secondary()
-TEXT_MUTED = Theme.text_muted()
-SURFACE = Theme.surface()
-BORDER = Theme.border()
-DARK = "#1A1A28"
-SURFACE_VARIANT = "#2A2A3C"
+def _text_primary() -> str: return Theme.text()
+def _text_secondary() -> str: return Theme.text_secondary()
+def _text_muted() -> str: return Theme.text_muted()
+def _surface() -> str: return Theme.surface()
+def _border() -> str: return Theme.border()
+
+# Alias de cadena: solo usar en contextos donde el tema no cambia en runtime.
+TEXT_PRIMARY = property(_text_primary) if False else Theme.text()  # noqa: SIM210
+TEXT_SECONDARY = property(_text_secondary) if False else Theme.text_secondary()  # noqa: SIM210
+TEXT_MUTED = property(_text_muted) if False else Theme.text_muted()  # noqa: SIM210
+SURFACE = property(_surface) if False else Theme.surface()  # noqa: SIM210
+BORDER = property(_border) if False else Theme.border()  # noqa: SIM210
+DARK = DARK_SIDEBAR
+SURFACE_VARIANT = DARK_SURFACE
