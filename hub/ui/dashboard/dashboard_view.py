@@ -15,12 +15,14 @@ from PySide6.QtWidgets import (
 from hub.ui.common.design import (
     NEXAStyles,
     AppCard,
+    ACCENT,
     SURFACE,
     SURFACE_VARIANT,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
     TEXT_MUTED,
     get_font,
+    Icon,
 )
 
 
@@ -65,8 +67,8 @@ class DashboardView(QWidget):
         """)
         search_layout = QHBoxLayout(search_frame)
         search_layout.setContentsMargins(12, 4, 12, 4)
-        search_icon = QLabel("\U0001f50d")
-        search_icon.setFont(get_font(16))
+        search_icon = Icon("search", 16)
+        search_icon.set_color(TEXT_MUTED)
         search_layout.addWidget(search_icon)
 
         from PySide6.QtWidgets import QLineEdit
@@ -138,7 +140,7 @@ class DashboardView(QWidget):
         layout = QVBoxLayout(container)
         layout.setSpacing(8)
 
-        title = QLabel("\U0001f4a1 ¿Tienes una tarea repetitiva?")
+        title = QLabel("¿Tienes una tarea repetitiva?")
         title.setFont(get_font(14, bold=True))
         title.setStyleSheet(f"color: {TEXT_PRIMARY};")
         layout.addWidget(title)

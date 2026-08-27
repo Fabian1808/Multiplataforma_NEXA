@@ -49,13 +49,13 @@ class RatingWidget(QWidget):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(12)
 
-        yes_btn = QPushButton("\U0001f44d Sí")
+        yes_btn = QPushButton("Sí")
         yes_btn.setStyleSheet(NEXAStyles.primary_button())
         yes_btn.setFixedWidth(100)
         yes_btn.clicked.connect(lambda: self._rate(True))
         btn_row.addWidget(yes_btn)
 
-        no_btn = QPushButton("\U0001f44e No")
+        no_btn = QPushButton("No")
         no_btn.setStyleSheet(NEXAStyles.secondary_button())
         no_btn.setFixedWidth(100)
         no_btn.clicked.connect(lambda: self._rate(False))
@@ -96,7 +96,7 @@ class RatingWidget(QWidget):
 
     def _rate(self, helpful: bool) -> None:
         self.rated.emit(self._plugin_id, helpful, self._selected_time)
-        self._thank_label.setText("\u2705 ¡Gracias por tu valoración!")
+        self._thank_label.setText("¡Gracias por tu valoración!")
         self._thank_label.setVisible(True)
 
     def _select_time(self, btn: QPushButton) -> None:

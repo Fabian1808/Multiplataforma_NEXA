@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, TEXT_PRIMARY, TEXT_SECONDARY, get_font,
+    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, get_font, Icon,
 )
 
 
@@ -39,10 +39,15 @@ class IssueReportView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        header = QLabel("\U0001f41b Reportar Problema")
+        header_row = QHBoxLayout()
+        header_icon = Icon("flag", 20)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Reportar Problema")
         header.setFont(get_font(20, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
-        layout.addWidget(header)
+        header_row.addWidget(header, stretch=1)
+        layout.addLayout(header_row)
 
         subtitle = QLabel("Describe el problema que encontraste para que podamos solucionarlo.")
         subtitle.setFont(get_font(12))
@@ -101,7 +106,7 @@ class IssueReportView(QWidget):
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        submit_btn = QPushButton("\U0001f4e4  Enviar Reporte")
+        submit_btn = QPushButton("Enviar Reporte")
         submit_btn.setStyleSheet(NEXAStyles.primary_button())
         submit_btn.setFixedWidth(200)
         submit_btn.clicked.connect(self._on_submit)

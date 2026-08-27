@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, SUCCESS, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
 )
 
 
@@ -28,7 +28,10 @@ class FeedView(QWidget):
         layout.setSpacing(16)
 
         header_row = QHBoxLayout()
-        header = QLabel("\U0001f4e2 Comunidad NEXA")
+        header_icon = Icon("activity", 18)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Comunidad NEXA")
         header.setFont(get_font(18, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
         header_row.addWidget(header, stretch=1)
@@ -51,7 +54,7 @@ class FeedView(QWidget):
         create_layout.addWidget(self._new_post_input)
         post_btn_row = QHBoxLayout()
         post_btn_row.addStretch()
-        self._post_btn = QPushButton("\U0001f4e4 Publicar")
+        self._post_btn = QPushButton("Publicar")
         self._post_btn.setStyleSheet(NEXAStyles.primary_button())
         self._post_btn.setFixedWidth(120)
         post_btn_row.addWidget(self._post_btn)
@@ -83,12 +86,15 @@ class FeedView(QWidget):
             card_layout.setSpacing(8)
 
             top_row = QHBoxLayout()
-            avatar = QLabel("\U0001f464")
-            avatar.setFont(get_font(16))
-            avatar.setFixedSize(36, 36)
-            avatar.setStyleSheet(f"background-color: {ACCENT}20; border-radius: 18px; color: {ACCENT};")
-            avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            top_row.addWidget(avatar)
+            avatar_frame = QFrame()
+            avatar_frame.setFixedSize(36, 36)
+            avatar_frame.setStyleSheet(f"background-color: {ACCENT}20; border-radius: 18px;")
+            av_lay = QHBoxLayout(avatar_frame)
+            av_lay.setContentsMargins(0, 0, 0, 0)
+            avatar = Icon("user", 16)
+            avatar.set_color(ACCENT)
+            av_lay.addWidget(avatar)
+            top_row.addWidget(avatar_frame)
 
             author_info = QVBoxLayout()
             author_info.setSpacing(1)
@@ -125,13 +131,13 @@ class FeedView(QWidget):
 
             bottom_row = QHBoxLayout()
             likes = post.get("likes_count", 0)
-            like_btn = QPushButton(f"\u2764 {likes}")
-            like_btn.setStyleSheet("border: none; color: #999999; font-size: 11px;")
+            like_btn = QPushButton(f"Me gusta · {likes}")
+            like_btn.setStyleSheet("border: none; color: #999999; font-size: 11px; padding: 2px 6px;")
             like_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             bottom_row.addWidget(like_btn)
             comments = post.get("comments_count", 0)
-            comment_btn = QPushButton(f"\U0001f4ac {comments}")
-            comment_btn.setStyleSheet("border: none; color: #999999; font-size: 11px;")
+            comment_btn = QPushButton(f"Comentarios · {comments}")
+            comment_btn.setStyleSheet("border: none; color: #999999; font-size: 11px; padding: 2px 6px;")
             comment_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             bottom_row.addWidget(comment_btn)
             bottom_row.addStretch()

@@ -27,6 +27,7 @@ from hub.ui.common.design import (
     NEXAStyles,
     Theme,
     get_font,
+    Icon,
 )
 
 _REPORT_STATUS = {
@@ -58,20 +59,25 @@ class ReportsCenterView(QWidget):
         main_layout.setContentsMargins(24, 24, 24, 24)
         main_layout.setSpacing(16)
 
-        header = QLabel("\U0001f4cb Centro de Reportes")
+        header_row = QHBoxLayout()
+        header_icon = Icon("chart", 20)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Centro de Reportes")
         header.setFont(get_font(20, bold=True))
         header.setStyleSheet(
             f"color: {Theme.text()}; background: transparent; border: none;"
         )
-        main_layout.addWidget(header)
+        header_row.addWidget(header, stretch=1)
+        main_layout.addLayout(header_row)
 
         kpi_row = QHBoxLayout()
         kpi_row.setSpacing(12)
         kpi_defs = [
-            ("total", "\U0001f4ca", "Total Reportes", ACCENT),
-            ("today", "\U0001f4c5", "Hoy", "#1565C0"),
-            ("successful", "\u2705", "Exitosos", SUCCESS),
-            ("errors", "\u26a0", "Con Error", ERROR),
+            ("total", "chart", "Total Reportes", ACCENT),
+            ("today", "clock", "Hoy", "#1565C0"),
+            ("successful", "check", "Exitosos", SUCCESS),
+            ("errors", "close", "Con Error", ERROR),
         ]
         for key, icon, title, color in kpi_defs:
             card = self._build_kpi(icon, title, "0", color)
@@ -163,7 +169,7 @@ class ReportsCenterView(QWidget):
         detail_layout.setSpacing(8)
 
         detail_header_row = QHBoxLayout()
-        detail_title = QLabel("\U0001f4dd Detalle del Reporte")
+        detail_title = QLabel("Detalle del Reporte")
         detail_title.setFont(get_font(14, bold=True))
         detail_title.setStyleSheet(
             f"color: {Theme.text()}; background: transparent; border: none;"
@@ -234,12 +240,10 @@ class ReportsCenterView(QWidget):
         layout.setSpacing(4)
         layout.setContentsMargins(16, 14, 16, 14)
 
-        icon_lbl = QLabel(icon)
-        icon_lbl.setFont(get_font(20))
-        icon_lbl.setStyleSheet(
-            f"color: {color}; background: transparent; border: none;"
-        )
-        layout.addWidget(icon_lbl)
+        ico = Icon(icon, 20)
+        ico.set_color(color)
+        ico.setStyleSheet("background: transparent; border: none;")
+        layout.addWidget(ico)
 
         val_lbl = QLabel(value)
         val_lbl.setObjectName("kpi_val")

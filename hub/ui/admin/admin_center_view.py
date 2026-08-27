@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 from hub.core.health_check import HealthCheckService
 from hub.models.plugin import PluginDescriptor
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
 )
 
 _PAGE_APPS = 0
@@ -54,9 +54,9 @@ class AdminCenterView(QWidget):
 
         self._nav_buttons: list[QPushButton] = []
         nav_items = [
-            ("\u2699\ufe0f  Herramientas", _PAGE_APPS),
-            ("\U0001f3e5  Health Check", _PAGE_HEALTH),
-            ("\U0001f4a1  Oportunidades", _PAGE_OPPORTUNITIES),
+            ("Herramientas", _PAGE_APPS),
+            ("Health Check", _PAGE_HEALTH),
+            ("Oportunidades", _PAGE_OPPORTUNITIES),
         ]
         for label, page in nav_items:
             btn = QPushButton(label)
@@ -91,7 +91,7 @@ class AdminCenterView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        header = QLabel("\u2699\ufe0f Gestión de Herramientas")
+        header = QLabel("Gestión de Herramientas")
         header.setFont(get_font(18, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
         layout.addWidget(header)
@@ -113,7 +113,7 @@ class AdminCenterView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        header = QLabel("\U0001f3e5 Health Check de Herramientas")
+        header = QLabel("Health Check de Herramientas")
         header.setFont(get_font(18, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
         layout.addWidget(header)
@@ -130,7 +130,7 @@ class AdminCenterView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        header = QLabel("\U0001f4a1 Búsquedas sin Resultado")
+        header = QLabel("Búsquedas sin Resultado")
         header.setFont(get_font(18, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
         layout.addWidget(header)
@@ -254,7 +254,10 @@ class AdminCenterView(QWidget):
             card.setStyleSheet(NEXAStyles.card())
             card_layout = QHBoxLayout(card)
 
-            query_lbl = QLabel(f"\U0001f50d \"{opp['query']}\"")
+            query_icon = Icon("search", 15)
+            query_icon.set_color(TEXT_MUTED)
+            card_layout.addWidget(query_icon)
+            query_lbl = QLabel(f"\"{opp['query']}\"")
             query_lbl.setFont(get_font(12, bold=True))
             query_lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
             card_layout.addWidget(query_lbl, stretch=1)

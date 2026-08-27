@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from hub.models.request import AutomationScore
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
 )
 
 
@@ -40,10 +40,15 @@ class AutomationProposalView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        header = QLabel("\U0001f4a1 Proponer Automatización")
+        header_row = QHBoxLayout()
+        header_icon = Icon("wrench", 20)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Proponer Automatización")
         header.setFont(get_font(20, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
-        layout.addWidget(header)
+        header_row.addWidget(header, stretch=1)
+        layout.addLayout(header_row)
 
         subtitle = QLabel("Describe una tarea repetitiva y te ayudaremos a convertirla en una automatización.")
         subtitle.setFont(get_font(12))
@@ -101,7 +106,7 @@ class AutomationProposalView(QWidget):
         scoring_layout = QVBoxLayout(scoring_frame)
         scoring_layout.setSpacing(8)
 
-        score_title = QLabel("\U0001f4ca Estimación de Impacto")
+        score_title = QLabel("Estimación de Impacto")
         score_title.setFont(get_font(14, bold=True))
         scoring_layout.addWidget(score_title)
 
@@ -151,7 +156,7 @@ class AutomationProposalView(QWidget):
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        submit_btn = QPushButton("\U0001f4e4  Enviar Propuesta")
+        submit_btn = QPushButton("Enviar Propuesta")
         submit_btn.setStyleSheet(NEXAStyles.primary_button())
         submit_btn.setFixedWidth(200)
         submit_btn.clicked.connect(self._on_submit)
@@ -177,18 +182,15 @@ class AutomationProposalView(QWidget):
 
         if score.classification == "alta":
             color = "#D32F2F"
-            emoji = "\U0001f534"
             label = "Alta oportunidad"
         elif score.classification == "media":
             color = WARNING
-            emoji = "\U0001f7e1"
             label = "Media oportunidad"
         else:
             color = SUCCESS
-            emoji = "\U0001f7e2"
             label = "Baja oportunidad"
 
-        self._score_result.setText(f"{emoji} {label}")
+        self._score_result.setText(f"\u25cf {label}")
         self._score_result.setStyleSheet(f"color: {color}; font-size: 16px; font-weight: bold;")
         self._score_detail.setText(
             f"~{score.monthly_hours:.0f} h/mes · ~{score.yearly_hours:.0f} h/año · "

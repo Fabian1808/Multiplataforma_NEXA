@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 
 from hub.ui.common.design import (
     NEXAStyles, ACCENT, SUCCESS, WARNING, ERROR, INFO,
-    get_font, Theme,
+    get_font, Theme, Icon,
 )
 
 
@@ -32,10 +32,10 @@ class KPICard(QFrame):
         layout.setSpacing(4)
         top = QHBoxLayout()
         if icon:
-            icon_lbl = QLabel(icon)
-            icon_lbl.setFont(get_font(20))
-            icon_lbl.setStyleSheet(f"color: {color}; background: transparent; border: none;")
-            top.addWidget(icon_lbl)
+            ico = Icon(icon, 20)
+            ico.set_color(color)
+            ico.setStyleSheet("background: transparent; border: none;")
+            top.addWidget(ico)
         top.addStretch()
         layout.addLayout(top)
         self._value = QLabel(value)
@@ -61,10 +61,10 @@ class _SectionCard(QFrame):
         layout.setContentsMargins(18, 14, 18, 14)
         header = QHBoxLayout()
         if icon:
-            ic = QLabel(icon)
-            ic.setFont(get_font(14))
-            ic.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
-            header.addWidget(ic)
+            ico = Icon(icon, 15)
+            ico.set_color(ACCENT)
+            ico.setStyleSheet("background: transparent; border: none;")
+            header.addWidget(ico)
         lbl = QLabel(title)
         lbl.setFont(get_font(13, bold=True))
         lbl.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
@@ -133,14 +133,14 @@ class EnhancedDashboardView(QWidget):
         self._kpi_grid.setSpacing(12)
         self._kpis: dict[str, KPICard] = {}
         kpi_defs = [
-            ("executions", "Ejecuciones", "\U0001f680", ACCENT),
-            ("tools", "Herramientas", "\U0001f4e6", INFO),
-            ("users", "Usuarios", "\U0001f465", SUCCESS),
-            ("projects", "Proyectos", "\U0001f4c2", "#9C27B0"),
-            ("requests", "Solicitudes", "\U0001f4cb", WARNING),
-            ("articles", "Conocimiento", "\U0001f4da", "#00897B"),
-            ("posts", "Publicaciones", "\U0001f4e2", "#5C6BC0"),
-            ("incidents", "Incidentes", "\U0001f6a8", ERROR),
+            ("executions", "Ejecuciones", "play", ACCENT),
+            ("tools", "Herramientas", "apps", INFO),
+            ("users", "Usuarios", "users", SUCCESS),
+            ("projects", "Proyectos", "folder", "#9C27B0"),
+            ("requests", "Solicitudes", "list", WARNING),
+            ("articles", "Conocimiento", "book", "#00897B"),
+            ("posts", "Publicaciones", "activity", "#5C6BC0"),
+            ("incidents", "Incidentes", "flag", ERROR),
         ]
         for i, (key, title, icon, color) in enumerate(kpi_defs):
             card = KPICard(title, "0", icon, color)
@@ -148,17 +148,17 @@ class EnhancedDashboardView(QWidget):
             self._kpi_grid.addWidget(card, i // 4, i % 4)
         layout.addLayout(self._kpi_grid)
 
-        self._pending_card = KPICard("Pendientes", "0", "\U0001f4cb", WARNING)
+        self._pending_card = KPICard("Pendientes", "0", "clock", WARNING)
         self._kpis["pending"] = self._pending_card  # registrar para update_kpi()
         self._kpi_grid.addWidget(self._pending_card, 2, 0)
 
         middle = QHBoxLayout()
         middle.setSpacing(16)
 
-        self._favorites_section = _SectionCard("Herramientas Favoritas", "\u2b50")
+        self._favorites_section = _SectionCard("Herramientas Favoritas", "star")
         middle.addWidget(self._favorites_section, stretch=1)
 
-        self._health_section = _SectionCard("Salud de Aplicaciones", "\u2764\ufe0f")
+        self._health_section = _SectionCard("Salud de Aplicaciones", "shield")
         middle.addWidget(self._health_section, stretch=1)
 
         layout.addLayout(middle)
@@ -166,10 +166,10 @@ class EnhancedDashboardView(QWidget):
         bottom = QHBoxLayout()
         bottom.setSpacing(16)
 
-        self._activity_section = _SectionCard("Actividad Reciente", "\U0001f4c8")
+        self._activity_section = _SectionCard("Actividad Reciente", "activity")
         bottom.addWidget(self._activity_section, stretch=1)
 
-        self._tools_section = _SectionCard("Herramientas Populares", "\U0001f525")
+        self._tools_section = _SectionCard("Herramientas Populares", "cube")
         bottom.addWidget(self._tools_section, stretch=1)
 
         layout.addLayout(bottom, stretch=1)
@@ -214,7 +214,7 @@ class EnhancedDashboardView(QWidget):
             name.setFont(get_font(11, bold=True))
             name.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
             row.addWidget(name, stretch=1)
-            count = QLabel(f"\u25b6 {tool.get('executions', 0)}")
+            count = QLabel(f"{tool.get('executions', 0)} ejecuciones")
             count.setFont(get_font(10))
             count.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
             row.addWidget(count)
@@ -230,10 +230,10 @@ class EnhancedDashboardView(QWidget):
         self._favorites_section._set_placeholder(False)
         for tool in tools[:6]:
             row = QHBoxLayout()
-            star = QLabel("\u2605")
-            star.setFont(get_font(12))
-            star.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
-            row.addWidget(star)
+            ico = Icon("star", 13)
+            ico.set_color(ACCENT)
+            ico.setStyleSheet("background: transparent; border: none;")
+            row.addWidget(ico)
             name = QLabel(tool.get("name", ""))
             name.setFont(get_font(11, bold=True))
             name.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")

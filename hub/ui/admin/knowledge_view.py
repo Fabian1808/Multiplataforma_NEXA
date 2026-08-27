@@ -10,12 +10,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-from hub.models.knowledge import KnowledgeArticle
 from hub.ui.common.design import (
     NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
 )
@@ -28,7 +26,7 @@ class KnowledgeBaseView(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._articles: list[KnowledgeArticle] = []
+        self._articles: list[dict] = []
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -36,7 +34,7 @@ class KnowledgeBaseView(QWidget):
         main_layout.setContentsMargins(24, 24, 24, 24)
         main_layout.setSpacing(16)
 
-        header = QLabel("\U0001f4da Base de Conocimiento")
+        header = QLabel("Base de Conocimiento")
         header.setFont(get_font(20, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
         main_layout.addWidget(header)
@@ -89,17 +87,17 @@ class KnowledgeBaseView(QWidget):
 
         create_row = QHBoxLayout()
         create_row.addStretch()
-        create_btn = QPushButton("\u2795  Crear Artículo")
+        create_btn = QPushButton("Crear Artículo")
         create_btn.setStyleSheet(NEXAStyles.primary_button())
         create_btn.setFixedWidth(180)
         create_row.addWidget(create_btn)
         main_layout.addLayout(create_row)
 
-    def set_articles(self, articles: list[KnowledgeArticle]) -> None:
+    def set_articles(self, articles: list[dict]) -> None:
         self._articles = articles
         self._render_articles(articles)
 
-    def _render_articles(self, articles: list[KnowledgeArticle]) -> None:
+    def _render_articles(self, articles: list[dict]) -> None:
         while self._articles_layout.count():
             item = self._articles_layout.takeAt(0)
             if item.widget():
@@ -114,38 +112,45 @@ class KnowledgeBaseView(QWidget):
             return
 
         for article in articles:
+            aid = article.get("id")
+            title = article.get("title") or "Sin título"
+            category = article.get("category") or ""
+            content = article.get("content") or ""
+            author = article.get("author") or ""
+
             card = QFrame()
             card.setStyleSheet(NEXAStyles.card())
             card.setCursor(Qt.CursorShape.PointingHandCursor)
-            card.mousePressEvent = lambda _, aid=article.id: self.article_selected.emit(aid)
+            card.mousePressEvent = lambda _, aid=aid: self.article_selected.emit(aid)
 
             card_layout = QVBoxLayout(card)
             card_layout.setContentsMargins(16, 12, 16, 12)
             card_layout.setSpacing(4)
 
             title_row = QHBoxLayout()
-            title = QLabel(article.title)
-            title.setFont(get_font(13, bold=True))
-            title.setStyleSheet(f"color: {TEXT_PRIMARY};")
-            title_row.addWidget(title, stretch=1)
-            if article.category:
-                cat_badge = QLabel(article.category)
+            title_lbl = QLabel(title)
+            title_lbl.setFont(get_font(13, bold=True))
+            title_lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            title_row.addWidget(title_lbl, stretch=1)
+            if category:
+                cat_badge = QLabel(category)
                 cat_badge.setFont(get_font(10))
                 cat_badge.setStyleSheet(f"color: {ACCENT}; background-color: #FF550315; padding: 2px 8px; border-radius: 4px;")
                 title_row.addWidget(cat_badge)
             card_layout.addLayout(title_row)
 
-            preview = QLabel(article.content[:150] + "..." if len(article.content) > 150 else article.content)
+            preview_text = content[:150] + "..." if len(content) > 150 else content
+            preview = QLabel(preview_text)
             preview.setFont(get_font(11))
             preview.setStyleSheet(f"color: {TEXT_SECONDARY};")
             preview.setWordWrap(True)
             card_layout.addWidget(preview)
 
             meta_row = QHBoxLayout()
-            author = QLabel(f"Por {article.author}" if article.author else "")
-            author.setFont(get_font(10))
-            author.setStyleSheet(f"color: {TEXT_MUTED};")
-            meta_row.addWidget(author)
+            author_lbl = QLabel(f"Por {author}" if author else "")
+            author_lbl.setFont(get_font(10))
+            author_lbl.setStyleSheet(f"color: {TEXT_MUTED};")
+            meta_row.addWidget(author_lbl)
             meta_row.addStretch()
             card_layout.addLayout(meta_row)
 
@@ -160,8 +165,12 @@ class KnowledgeBaseView(QWidget):
         q = query.lower()
         filtered = [
             a for a in self._articles
-            if (q in a.title.lower() or q in a.content.lower() or q in a.category.lower())
-            and (not self._current_category or self._current_category == "Todos" or a.category == self._current_category)
+            if (
+                q in (a.get("title") or "").lower()
+                or q in (a.get("content") or "").lower()
+                or q in (a.get("category") or "").lower()
+            )
+            and (not self._current_category or self._current_category == "Todos" or (a.get("category") or "") == self._current_category)
         ]
         self._render_articles(filtered)
 

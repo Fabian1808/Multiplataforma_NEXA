@@ -23,6 +23,7 @@ from hub.ui.common.design import (
     Theme,
     get_font,
     make_shadow,
+    Icon,
 )
 
 STATE_COLORS = {
@@ -59,12 +60,10 @@ class _AuditAppStateCard(QFrame):
         icon_frame.setStyleSheet(
             f"background-color: {ACCENT}15; border-radius: 8px; border: none;"
         )
-        icon_lbl = QLabel("\u2699\ufe0f")
-        icon_lbl.setFont(get_font(18))
-        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_lbl.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
         icon_inner = QVBoxLayout(icon_frame)
         icon_inner.setContentsMargins(0, 0, 0, 0)
+        icon_lbl = Icon("plugin", 18)
+        icon_lbl.set_color(ACCENT)
         icon_inner.addWidget(icon_lbl)
         top_row.addWidget(icon_frame)
 
@@ -104,7 +103,7 @@ class _AuditAppStateCard(QFrame):
         layout.addLayout(badge_row)
 
         last_exec = self._data.get("last_execution_at", "")
-        exec_text = f"\u25b6 \u00daltima ejecuci\u00f3n: {last_exec}" if last_exec else ""
+        exec_text = f"\u00daltima ejecuci\u00f3n: {last_exec}" if last_exec else ""
         exec_lbl = QLabel(exec_text)
         exec_lbl.setFont(get_font(10))
         exec_lbl.setStyleSheet(
@@ -113,7 +112,7 @@ class _AuditAppStateCard(QFrame):
         layout.addWidget(exec_lbl)
 
         last_upd = self._data.get("last_update_at", "")
-        upd_text = f"\U0001f504 \u00daltima actualizaci\u00f3n: {last_upd}" if last_upd else ""
+        upd_text = f"\u00daltima actualizaci\u00f3n: {last_upd}" if last_upd else ""
         upd_lbl = QLabel(upd_text)
         upd_lbl.setFont(get_font(10))
         upd_lbl.setStyleSheet(
@@ -176,22 +175,27 @@ class AppAuditView(QWidget):
         self._layout.setContentsMargins(24, 24, 24, 24)
         self._layout.setSpacing(16)
 
-        header = QLabel("\U0001f4ca Auditor\u00eda de Herramientas")
+        header_row = QHBoxLayout()
+        header_icon = Icon("chart", 20)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Auditor\u00eda de Herramientas")
         header.setFont(get_font(20, bold=True))
         header.setStyleSheet(
             f"color: {Theme.text()}; background: transparent; border: none;"
         )
-        self._layout.addWidget(header)
+        header_row.addWidget(header, stretch=1)
+        self._layout.addLayout(header_row)
 
         kpi_row = QHBoxLayout()
         kpi_row.setSpacing(12)
         kpi_defs = [
-            ("total", "\u2699\ufe0f", "Total", ACCENT),
-            ("active", "\u25b6", "Activas", SUCCESS),
-            ("paused", "\u23f8", "Pausadas", WARNING),
-            ("maintenance", "\U0001f527", "Mantenimiento", "#E65100"),
-            ("problems", "\u26a0", "Con Problemas", ERROR),
-            ("failures", "\u2716", "Fallas Abiertas", ERROR),
+            ("total", "apps", "Total", ACCENT),
+            ("active", "play", "Activas", SUCCESS),
+            ("paused", "clock", "Pausadas", WARNING),
+            ("maintenance", "wrench", "Mantenimiento", "#E65100"),
+            ("problems", "close", "Con Problemas", ERROR),
+            ("failures", "flag", "Fallas Abiertas", ERROR),
         ]
         for key, icon, title, color in kpi_defs:
             card = self._build_kpi(icon, title, "0", color)
@@ -224,12 +228,10 @@ class AppAuditView(QWidget):
         layout.setSpacing(4)
         layout.setContentsMargins(16, 14, 16, 14)
 
-        icon_lbl = QLabel(icon)
-        icon_lbl.setFont(get_font(20))
-        icon_lbl.setStyleSheet(
-            f"color: {color}; background: transparent; border: none;"
-        )
-        layout.addWidget(icon_lbl)
+        ico = Icon(icon, 20)
+        ico.set_color(color)
+        ico.setStyleSheet("background: transparent; border: none;")
+        layout.addWidget(ico)
 
         val_lbl = QLabel(value)
         val_lbl.setObjectName("kpi_val")

@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
 )
 
 
@@ -34,21 +34,26 @@ class ImpactDashboardView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        header = QLabel("\U0001f4ca Dashboard de Impacto")
+        header_row = QHBoxLayout()
+        header_icon = Icon("chart", 20)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Dashboard de Impacto")
         header.setFont(get_font(20, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
-        layout.addWidget(header)
+        header_row.addWidget(header, stretch=1)
+        layout.addLayout(header_row)
 
         kpi_grid = QGridLayout()
         kpi_grid.setSpacing(16)
         self._kpi_cards: dict[str, QLabel] = {}
         kpis = [
-            ("users", "\U0001f465", "Usuarios Activos", "0", ACCENT),
-            ("tools", "\u2699\ufe0f", "Herramientas", "0", "#1565C0"),
-            ("executions", "\u25b6", "Ejecuciones", "0", SUCCESS),
-            ("hours_saved", "\u23f1", "Horas Ahorradas", "0 h", WARNING),
-            ("requests", "\U0001f4cb", "Solicitudes", "0", "#6A1B9A"),
-            ("knowledge", "\U0001f4da", "Artículos KB", "0", "#00838F"),
+            ("users", "users", "Usuarios Activos", "0", ACCENT),
+            ("tools", "apps", "Herramientas", "0", "#1565C0"),
+            ("executions", "play", "Ejecuciones", "0", SUCCESS),
+            ("hours_saved", "clock", "Horas Ahorradas", "0 h", WARNING),
+            ("requests", "list", "Solicitudes", "0", "#6A1B9A"),
+            ("knowledge", "book", "Artículos KB", "0", "#00838F"),
         ]
         for i, (key, icon, title, value, color) in enumerate(kpis):
             card = self._create_kpi_card(icon, title, value, color)
@@ -62,7 +67,7 @@ class ImpactDashboardView(QWidget):
         impact_frame = QFrame()
         impact_frame.setStyleSheet(NEXAStyles.card())
         impact_layout = QVBoxLayout(impact_frame)
-        impact_title = QLabel("\U0001f4b0 Impacto Estimado")
+        impact_title = QLabel("Impacto Estimado")
         impact_title.setFont(get_font(14, bold=True))
         impact_layout.addWidget(impact_title)
         self._impact_value = QLabel("S/ 0.00")
@@ -78,7 +83,7 @@ class ImpactDashboardView(QWidget):
         status_frame = QFrame()
         status_frame.setStyleSheet(NEXAStyles.card())
         status_layout = QVBoxLayout(status_frame)
-        status_title = QLabel("\U0001f3af Estado de Herramientas")
+        status_title = QLabel("Estado de Herramientas")
         status_title.setFont(get_font(14, bold=True))
         status_layout.addWidget(status_title)
         self._status_labels: dict[str, QLabel] = {}
@@ -100,7 +105,7 @@ class ImpactDashboardView(QWidget):
         top_plugins_frame = QFrame()
         top_plugins_frame.setStyleSheet(NEXAStyles.card())
         top_layout = QVBoxLayout(top_plugins_frame)
-        top_title = QLabel("\U0001f3c6 Top Herramientas")
+        top_title = QLabel("Top Herramientas")
         top_title.setFont(get_font(14, bold=True))
         top_layout.addWidget(top_title)
         self._top_plugins_list = QVBoxLayout()
@@ -128,9 +133,9 @@ class ImpactDashboardView(QWidget):
         layout = QVBoxLayout(card)
         layout.setSpacing(4)
 
-        icon_lbl = QLabel(icon)
-        icon_lbl.setFont(get_font(20))
-        layout.addWidget(icon_lbl)
+        ico = Icon(icon, 20)
+        ico.set_color(color)
+        layout.addWidget(ico, alignment=Qt.AlignmentFlag.AlignLeft)
 
         title_lbl = QLabel(title)
         title_lbl.setFont(get_font(11))

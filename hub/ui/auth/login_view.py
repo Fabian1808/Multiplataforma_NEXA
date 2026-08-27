@@ -24,6 +24,7 @@ from hub.ui.common.design import (
     ERROR,
     NEXAStyles,
     Theme,
+    Icon,
     get_font,
 )
 
@@ -70,11 +71,18 @@ class LoginView(QWidget):
         card.setGraphicsEffect(shadow)
 
         # ── Logo ──────────────────────────────────────────────
+        logo_row = QHBoxLayout()
+        logo_row.setSpacing(12)
+        logo_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo_icon = Icon("plugin", 30)
+        logo_icon.set_color(ACCENT)
+        logo_row.addWidget(logo_icon)
         logo = QLabel("NEXA")
-        logo.setFont(get_font(38, bold=True))
+        logo.setFont(get_font(32, weight=700))
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
-        card_layout.addWidget(logo)
+        logo_row.addWidget(logo)
+        card_layout.addLayout(logo_row)
 
         subtitle = QLabel("Productivity Hub")
         subtitle.setFont(get_font(13))
@@ -117,10 +125,15 @@ class LoginView(QWidget):
         self._password_input.setFixedHeight(44)
         pass_row.addWidget(self._password_input)
 
-        self._toggle_btn = QPushButton("\U0001f441")
+        self._toggle_btn = QPushButton()
+        self._toggle_icon = Icon("eye", 18)
+        self._toggle_icon.set_color(Theme.text_secondary())
+        self._toggle_btn.setLayout(QVBoxLayout())
+        self._toggle_btn.layout().setContentsMargins(0, 0, 0, 0)
+        self._toggle_btn.layout().addWidget(self._toggle_icon, 0, Qt.AlignmentFlag.AlignCenter)
         self._toggle_btn.setFixedSize(44, 44)
         self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._toggle_btn.setFont(get_font(16))
+        self._toggle_btn.setObjectName("toggleBtn")
         self._toggle_btn.clicked.connect(self._toggle_password)
         pass_row.addWidget(self._toggle_btn)
 
@@ -197,10 +210,10 @@ class LoginView(QWidget):
         self._password_visible = not self._password_visible
         if self._password_visible:
             self._password_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self._toggle_btn.setText("\U0001f441\ufe0f")
+            self._toggle_icon.set_icon("eye")
         else:
             self._password_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self._toggle_btn.setText("\U0001f441")
+            self._toggle_icon.set_icon("eye_off")
 
     def _show_error(self, message: str) -> None:
         self._error_label.setText(message)

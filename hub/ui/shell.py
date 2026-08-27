@@ -12,8 +12,10 @@ from PySide6.QtCore import Qt, Signal, QThread
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QStackedWidget, QVBoxLayout, QWidget, QMessageBox,
+    QStackedWidget, QVBoxLayout, QWidget, QMessageBox, QScrollArea,
 )
+
+from hub.ui.common.design import Icon
 
 from hub import __app_name__, __version__
 from hub.core.service_container import ServiceContainer
@@ -121,6 +123,86 @@ class _BackgroundWorker(QThread):
 
 
 # ---------------------------------------------------------------------------
+# Sidebar nav item (icono + texto con estado activo/hover)
+# ---------------------------------------------------------------------------
+class _NavItem(QWidget):
+    """Ítem de navegación del sidebar: icono lineal + etiqueta.
+
+    Estado activo: barra de acento a la izquierda + fondo sutil, sin bloques
+    pesados. Navegación limpia tipo SaaS.
+    """
+
+    def __init__(self, icon_name: str, text: str, page_key: str,
+                 on_click, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._page_key = page_key
+        self._active = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(38)
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(10, 6, 10, 6)
+        lay.setSpacing(10)
+
+        self._indicator = QFrame()
+        self._indicator.setFixedSize(3, 20)
+        self._indicator.setStyleSheet("border: none;")
+
+        layout_ind = QVBoxLayout(self._indicator)
+
+        self._icon = Icon(icon_name, 18)
+        self._icon.set_color(Theme.text_secondary())
+        self._label = QLabel(text)
+        self._label.setFont(get_font(13, weight=600 if self._active else 400))
+
+        lay.addWidget(self._indicator)
+        lay.addWidget(self._icon)
+        lay.addWidget(self._label)
+        lay.addStretch()
+
+        self._on_click = on_click
+        self._apply_style()
+
+    def _apply_style(self) -> None:
+        if self._active:
+            bg = Theme.active_bg()
+            tx = ACCENT
+            ind = ACCENT
+            weight = 600
+        else:
+            bg = "transparent"
+            tx = Theme.text() if not is_dark() else "#EDEDF3"
+            ind = "transparent"
+            weight = 400
+        self._indicator.setStyleSheet(f"background-color: {ind}; border-radius: 2px; border: none;")
+        self._icon.set_color(tx)
+        self._label.setStyleSheet(f"color: {tx}; background: transparent; border: none;")
+        self._label.setFont(get_font(13, weight=weight))
+        self.setStyleSheet(
+            f"_NavItem {{ background-color: {bg}; border-radius: 8px; }}"
+        )
+
+    def set_active(self, active: bool) -> None:
+        self._active = active
+        self._apply_style()
+
+    def mousePressEvent(self, event) -> None:
+        if self._on_click:
+            self._on_click(self._page_key)
+        super().mousePressEvent(event)
+
+    def enterEvent(self, event) -> None:  # hover
+        if not self._active:
+            bg = Theme.hover_bg()
+            self.setStyleSheet(f"_NavItem {{ background-color: {bg}; border-radius: 8px; }}")
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self._apply_style()
+        super().leaveEvent(event)
+
+
+# ---------------------------------------------------------------------------
 # Main Shell (shown after login)
 # ---------------------------------------------------------------------------
 class Shell(QWidget):
@@ -132,7 +214,7 @@ class Shell(QWidget):
         super().__init__()
         self._svc = services
         self._workers: list[_BackgroundWorker] = []
-        self._nav_buttons: dict[str, QPushButton] = {}
+        self._nav_buttons: dict[str, _NavItem] = {}
         self._current_user: dict[str, Any] | None = None
         self._is_admin: bool = False
         self._current_page: str = P_DASHBOARD
@@ -312,152 +394,220 @@ class Shell(QWidget):
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
         sidebar.setStyleSheet(NEXAStyles.sidebar())
-        layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(12, 16, 12, 16)
-        layout.setSpacing(4)
 
-        # Logo
+        outer = QVBoxLayout(sidebar)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # ---- Logo ----
         logo_frame = QFrame()
         logo_layout = QHBoxLayout(logo_frame)
-        logo_layout.setContentsMargins(4, 4, 4, 16)
-        logo_icon = QLabel("\u26a1")
-        logo_icon.setFont(get_font(22, bold=True))
-        logo_icon.setStyleSheet(f"color: {ACCENT};")
+        logo_layout.setContentsMargins(20, 18, 20, 14)
+        logo_layout.setSpacing(10)
+        logo_icon = Icon("plugin", 22)
+        logo_icon.set_color(ACCENT)
         logo_layout.addWidget(logo_icon)
         logo_text = QLabel("NEXA")
-        logo_text.setFont(get_font(16, bold=True))
-        logo_text.setStyleSheet("color: #FFFFFF;")
+        logo_text.setFont(get_font(17, weight=700))
+        logo_text.setStyleSheet(
+            f"color: {Theme.text() if not is_dark() else '#FFFFFF'}; background: transparent; border: none;")
         logo_layout.addWidget(logo_text)
         logo_layout.addStretch()
-        layout.addWidget(logo_frame)
-        layout.addSpacing(8)
+        outer.addWidget(logo_frame)
+
+        # ---- Navegación (scrollable) ----
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet(NEXAStyles.scroll_area())
+        nav_widget = QWidget()
+        nav_widget.setObjectName("sidebarNav")
+        nav_widget.setStyleSheet(f"QWidget#sidebarNav {{ background: {Theme.sidebar_bg()}; }}")
+        layout = QVBoxLayout(nav_widget)
+        layout.setContentsMargins(12, 4, 12, 12)
+        layout.setSpacing(2)
 
         # --- INICIO ---
         self._add_section_label(layout, "INICIO")
-        self._add_nav_button(layout, "\U0001f3e0  Inicio", P_DASHBOARD)
+        self._add_nav_item(layout, "home", "Inicio", P_DASHBOARD)
 
         # --- HERRAMIENTAS ---
         self._add_section_label(layout, "HERRAMIENTAS")
-        self._add_nav_button(layout, "\U0001f4da  Catálogo", P_CATALOG)
-        self._add_nav_button(layout, "\U0001f50d  Búsqueda", P_SEARCH)
-        self._add_nav_button(layout, "\U0001f4bb  Aplicaciones", P_APP)
+        self._add_nav_item(layout, "grid", "Catálogo", P_CATALOG)
+        self._add_nav_item(layout, "search", "Búsqueda", P_SEARCH)
+        self._add_nav_item(layout, "apps", "Aplicaciones", P_APP)
 
         # --- OPERACIONES ---
         self._add_section_label(layout, "OPERACIONES")
-        self._add_nav_button(layout, "\U0001f4dd  Propuestas", P_PROPOSALS)
-        self._add_nav_button(layout, "\U0001f4cb  Solicitudes", P_REQUESTS)
-        self._add_nav_button(layout, "\U0001f4d6  Conocimiento", P_KNOWLEDGE)
-        self._add_nav_button(layout, "\U0001f527  Incidencias", P_ISSUES)
+        self._add_nav_item(layout, "file", "Propuestas", P_PROPOSALS)
+        self._add_nav_item(layout, "list", "Solicitudes", P_REQUESTS)
+        self._add_nav_item(layout, "book", "Conocimiento", P_KNOWLEDGE)
+        self._add_nav_item(layout, "wrench", "Incidencias", P_ISSUES)
 
         # --- REPORTES ---
         self._add_section_label(layout, "REPORTES")
-        self._add_nav_button(layout, "\U0001f4ca  Reportes", P_REPORTS)
-        self._add_nav_button(layout, "\U0001f4d1  Auditoría", P_AUDIT)
+        self._add_nav_item(layout, "chart", "Reportes", P_REPORTS)
+        self._add_nav_item(layout, "shield", "Auditoría", P_AUDIT)
 
         # --- ADMINISTRACIÓN (admin only) ---
         self._admin_section = self._build_admin_section(layout)
 
-        # --- Spacer ---
         layout.addStretch()
+        scroll.setWidget(nav_widget)
+        outer.addWidget(scroll, stretch=1)
 
-        # --- ACCIONES (bottom) ---
-        self._add_actions_section(layout)
-
-        # --- User info ---
-        user_label = QLabel(f"\U0001f464  {self._svc.user_name}")
-        user_label.setFont(get_font(10))
-        user_label.setStyleSheet("color: #CCCCCC; padding: 4px;")
-        layout.addWidget(user_label)
-        version_label = QLabel(f"v{__version__}")
-        version_label.setFont(get_font(9))
-        version_label.setStyleSheet("color: #888888;")
-        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(version_label)
+        # ---- Acciones inferiores + Perfil ----
+        outer.addWidget(self._build_bottom_panel())
 
         return sidebar
 
     def _build_admin_section(self, parent_layout: QVBoxLayout) -> QWidget | None:
         section = QWidget()
         section_layout = QVBoxLayout(section)
-        section_layout.setContentsMargins(0, 0, 0, 0)
-        section_layout.setSpacing(4)
+        section_layout.setContentsMargins(0, 6, 0, 0)
+        section_layout.setSpacing(2)
         self._add_section_label_widget(section_layout, "ADMINISTRACIÓN")
-        self._add_nav_button_widget(section_layout, "\U0001f465  Gestión de Usuarios", P_USERS)
-        self._add_nav_button_widget(section_layout, "\U0001f4ac  Comunidad", P_COMMUNITY)
+        self._add_nav_item(section_layout, "users", "Gestión de Usuarios", P_USERS)
+        self._add_nav_item(section_layout, "activity", "Comunidad", P_COMMUNITY)
         parent_layout.addWidget(section)
         section.setVisible(self._is_admin)
         return section
 
     def _add_section_label(self, layout: QVBoxLayout, text: str) -> None:
         lbl = QLabel(text)
-        lbl.setFont(get_font(10, bold=True))
+        lbl.setFont(get_font(10, weight=700))
         lbl.setStyleSheet(NEXAStyles.sidebar_section_label())
         layout.addWidget(lbl)
 
     def _add_section_label_widget(self, layout: QVBoxLayout, text: str) -> None:
         lbl = QLabel(text)
-        lbl.setFont(get_font(10, bold=True))
+        lbl.setFont(get_font(10, weight=700))
         lbl.setStyleSheet(NEXAStyles.sidebar_section_label())
         layout.addWidget(lbl)
 
-    def _add_nav_button(self, layout: QVBoxLayout, text: str, page_key: str) -> QPushButton:
-        btn = QPushButton(text)
-        btn.setStyleSheet(NEXAStyles.sidebar_button(page_key == P_DASHBOARD))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(lambda _, pk=page_key, b=btn: self._navigate_to(pk))
-        layout.addWidget(btn)
-        self._nav_buttons[page_key] = btn
-        return btn
+    def _add_nav_item(self, layout: QVBoxLayout, icon: str, text: str, page_key: str) -> None:
+        item = _NavItem(icon, text, page_key, self._navigate_to)
+        item.set_active(page_key == P_DASHBOARD)
+        layout.addWidget(item)
+        self._nav_buttons[page_key] = item
 
-    def _add_nav_button_widget(self, layout: QVBoxLayout, text: str, page_key: str) -> QPushButton:
-        btn = QPushButton(text)
-        btn.setStyleSheet(NEXAStyles.sidebar_button(False))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(lambda _, pk=page_key, b=btn: self._navigate_to(pk))
-        layout.addWidget(btn)
-        self._nav_buttons[page_key] = btn
-        return btn
+    def _build_bottom_panel(self) -> QWidget:
+        panel = QWidget()
+        panel.setObjectName("sidebarUser")
+        panel.setStyleSheet(NEXAStyles.sidebar_user_box())
+        v = QVBoxLayout(panel)
+        v.setContentsMargins(12, 10, 12, 12)
+        v.setSpacing(2)
 
-    def _add_actions_section(self, layout: QVBoxLayout) -> None:
-        # Notification badge
-        notif_row = QHBoxLayout()
-        notif_btn = QPushButton("\U0001f514")
-        notif_btn.setFont(get_font(14))
-        notif_btn.setStyleSheet("border: none; background: transparent; color: #FFFFFF;")
-        notif_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        notif_btn.clicked.connect(lambda: self._navigate_to(P_NOTIFICATIONS))
-        notif_row.addWidget(notif_btn)
+        # Acciones: notificaciones / apariencia
+        actions = QHBoxLayout()
+        actions.setSpacing(4)
+
+        notif_btn = Icon("bell", 17)
+        notif_btn.set_color(Theme.text_secondary())
+        notif_frame = QFrame()
+        nf = QHBoxLayout(notif_frame)
+        nf.setContentsMargins(8, 6, 8, 6)
+        nf.addWidget(notif_btn)
         self._notif_badge = QLabel("")
-        self._notif_badge.setFont(get_font(9, bold=True))
+        self._notif_badge.setFont(get_font(9, weight=700))
         self._notif_badge.setStyleSheet(
             f"background-color: {ACCENT}; color: #FFFFFF; border-radius: 8px; "
-            "padding: 1px 5px; min-width: 16px; max-width: 16px;"
-        )
+            "padding: 1px 5px; min-width: 14px; max-width: 14px;")
         self._notif_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._notif_badge.hide()
-        notif_row.addWidget(self._notif_badge)
-        notif_row.addStretch()
-        layout.addLayout(notif_row)
+        nf.addWidget(self._notif_badge)
+        notif_frame.setCursor(Qt.CursorShape.PointingHandCursor)
+        notif_frame.setStyleSheet(f"QFrame {{ border: none; background: transparent; border-radius: 6px; }}")
+        notif_frame.mousePressEvent = lambda e: self._navigate_to(P_NOTIFICATIONS)
+        actions.addWidget(notif_frame)
 
-        # Theme toggle
-        self._theme_btn = QPushButton()
-        self._refresh_theme_button()
-        self._theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._theme_btn.clicked.connect(self._toggle_theme)
-        layout.addWidget(self._theme_btn)
+        # Theme toggle (preferencias de apariencia)
+        self._theme_icon = Icon("sun" if is_dark() else "moon", 17)
+        self._theme_icon.set_color(Theme.text_secondary())
+        self._theme_frame = QFrame()
+        tf = QHBoxLayout(self._theme_frame)
+        tf.setContentsMargins(8, 6, 8, 6)
+        tf.addWidget(self._theme_icon)
+        self._theme_frame.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._theme_frame.setStyleSheet(f"QFrame {{ border: none; background: transparent; border-radius: 6px; }}")
+        self._theme_frame.mousePressEvent = lambda e: self._toggle_theme()
+        actions.addWidget(self._theme_frame)
 
-        # Logout button
-        logout_btn = QPushButton("  \u2192  Cerrar sesión")
-        logout_btn.setFont(get_font(10))
-        logout_btn.setStyleSheet(NEXAStyles.ghost_button())
-        logout_btn.setStyleSheet(
-            "QPushButton { color: #CCCCCC; border: none; text-align: left; "
-            "padding: 8px 16px; font-size: 11px; }"
-            "QPushButton:hover { color: #FF5503; }"
-        )
-        logout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        logout_btn.clicked.connect(self._on_logout)
-        layout.addWidget(logout_btn)
+        actions.addStretch()
+        v.addLayout(actions)
+
+        # Lista de acciones texto (Preferencias / Apariencia)
+        self._prefs_row = self._make_text_action("settings", "Preferencias")
+        self._prefs_row.mousePressEvent = lambda e: self._navigate_to(P_NOTIFICATIONS)
+        v.addWidget(self._prefs_row)
+
+        # ---- Perfil ----
+        profile = self._make_profile_row()
+        v.addSpacing(6)
+        v.addWidget(profile)
+
+        return panel
+
+    def _make_text_action(self, icon: str, text: str) -> QWidget:
+        row = QWidget()
+        row.setCursor(Qt.CursorShape.PointingHandCursor)
+        row.setFixedHeight(34)
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(6, 4, 6, 4)
+        lay.setSpacing(8)
+        ico = Icon(icon, 15)
+        ico.set_color(Theme.text_secondary())
+        lbl = QLabel(text)
+        lbl.setFont(get_font(11))
+        lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        lay.addWidget(ico)
+        lay.addWidget(lbl)
+        lay.addStretch()
+        return row
+
+    def _make_profile_row(self) -> QWidget:
+        row = QFrame()
+        row.setObjectName("sidebarUserCard")
+        row.setStyleSheet(
+            f"QFrame#sidebarUserCard {{ background-color: {Theme.hover_bg()}; "
+            f"border-radius: 10px; }}")
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(12, 10, 12, 10)
+        lay.setSpacing(10)
+
+        avatar = QFrame()
+        avatar.setFixedSize(34, 34)
+        avatar.setStyleSheet(
+            f"background-color: {ACCENT}; border-radius: 17px; border: none;")
+        av_l = QVBoxLayout(avatar)
+        av_l.setContentsMargins(0, 0, 0, 0)
+        initial = QLabel((self._svc.user_name or "?")[0].upper())
+        initial.setFont(get_font(13, weight=700))
+        initial.setStyleSheet("color: #FFFFFF; background: transparent;")
+        initial.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        av_l.addWidget(initial)
+        lay.addWidget(avatar)
+
+        col = QVBoxLayout()
+        col.setSpacing(0)
+        name = QLabel(self._svc.user_name or "")
+        name.setFont(get_font(12, weight=600))
+        name.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        role = QLabel("Administrador" if self._is_admin else "Colaborador")
+        role.setFont(get_font(10))
+        role.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
+        col.addWidget(name)
+        col.addWidget(role)
+        lay.addLayout(col, stretch=1)
+
+        logout_icon = Icon("logout", 16)
+        logout_icon.set_color(Theme.text_secondary())
+        lay.addWidget(logout_icon)
+        row.setCursor(Qt.CursorShape.PointingHandCursor)
+        row.mousePressEvent = lambda e: self._on_logout()
+        return row
 
     # ------------------------------------------------------------------
     # Header
@@ -470,19 +620,53 @@ class Shell(QWidget):
         hlayout.setContentsMargins(24, 0, 24, 0)
         hlayout.setSpacing(16)
 
+        # Título / breadcrumb
+        title_col = QVBoxLayout()
+        title_col.setSpacing(1)
+        self._header_crumb = QLabel("NEXA Productivity Hub")
+        self._header_crumb.setFont(get_font(10))
+        self._header_crumb.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
+        title_col.addWidget(self._header_crumb)
         self._header_title = QLabel(_PAGE_TITLES.get(P_DASHBOARD, "Inicio"))
-        self._header_title.setFont(get_font(16, bold=True))
-        self._header_title.setStyleSheet(f"color: {Theme.text()};")
-        hlayout.addWidget(self._header_title)
+        self._header_title.setFont(get_font(16, weight=700))
+        self._header_title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        title_col.addWidget(self._header_title)
+        hlayout.addLayout(title_col)
+
         hlayout.addStretch()
 
+        # Buscador global (componente moderno, no caja gigante)
+        search_box = QWidget()
+        search_box.setObjectName("globalSearch")
+        search_box.setStyleSheet(f"""
+            QWidget#globalSearch {{
+                background-color: {Theme.input_bg()};
+                border: 1px solid {Theme.border()};
+                border-radius: 10px;
+            }}
+        """)
+        s_lay = QHBoxLayout(search_box)
+        s_lay.setContentsMargins(10, 0, 6, 0)
+        s_lay.setSpacing(8)
+        s_icon = Icon("search", 15)
+        s_icon.set_color(Theme.text_muted())
+        s_lay.addWidget(s_icon)
         self._header_search = QLineEdit()
-        self._header_search.setPlaceholderText("Buscar herramientas, artículos...")
+        self._header_search.setPlaceholderText("Buscar...")
         self._header_search.setFont(get_font(12))
-        self._header_search.setStyleSheet(NEXAStyles.search_input())
-        self._header_search.setFixedWidth(300)
+        self._header_search.setStyleSheet(
+            f"QLineEdit {{ border: none; background: transparent; color: {Theme.text()}; "
+            f"font-size: 12px; }}"
+            f"QLineEdit::placeholder {{ color: {Theme.text_muted()}; }}")
+        self._header_search.setFixedWidth(240)
         self._header_search.returnPressed.connect(self._on_header_search)
-        hlayout.addWidget(self._header_search)
+        s_lay.addWidget(self._header_search)
+        kbd = QLabel("⌘K")
+        kbd.setFont(get_font(9))
+        kbd.setStyleSheet(f"color: {Theme.text_muted()}; background: {Theme.hover_bg()}; "
+                          f"border-radius: 4px; padding: 2px 6px;")
+        s_lay.addWidget(kbd)
+        hlayout.addWidget(search_box)
 
         return header
 
@@ -503,20 +687,25 @@ class Shell(QWidget):
         self._current_page = page_key
         self._stack.setCurrentWidget(page)
         self._header_title.setText(_PAGE_TITLES.get(page_key, ""))
+        self._header_crumb.setText(self._page_crumb(page_key))
 
         # Highlight active button
-        for key, btn in self._nav_buttons.items():
-            btn.setStyleSheet(NEXAStyles.sidebar_button(key == page_key))
+        for key, item in self._nav_buttons.items():
+            item.set_active(key == page_key)
 
         # Trigger data refresh
         self._refresh_page(page_key)
+
+    def _page_crumb(self, page_key: str) -> str:
+        return f"NEXA / {_PAGE_TITLES.get(page_key, '')}"
 
     def _show_access_denied(self) -> None:
         self._current_page = ""
         self._stack.setCurrentWidget(self._access_denied_label)
         self._header_title.setText("Acceso denegado")
-        for btn in self._nav_buttons.values():
-            btn.setStyleSheet(NEXAStyles.sidebar_button(False))
+        self._header_crumb.setText("NEXA / Acceso denegado")
+        for item in self._nav_buttons.values():
+            item.set_active(False)
 
     # ------------------------------------------------------------------
     # Data refresh per page
@@ -555,7 +744,7 @@ class Shell(QWidget):
                 "favorites": fav_tools,
                 "app_health": app_health,
                 "pending_requests": pending_count,
-                "recent_activity": [{"icon": "\U0001f4dd", "text": e.get("description", ""), "time": e.get("timestamp", "")[:16], "color": "#FF5503"} for e in recent],
+                "recent_activity": [{"icon": "\u25cf", "text": e.get("description", ""), "time": e.get("timestamp", "")[:16], "color": "#FF5503"} for e in recent],
             }
         worker = _BackgroundWorker(_work, self)
         worker.finished.connect(self._on_dashboard_loaded)
@@ -794,22 +983,27 @@ class Shell(QWidget):
         self.apply_theme()
 
     def _refresh_theme_button(self) -> None:
-        icon = "\u2600\ufe0f" if self._theme_mode == "dark" else "\U0001f319"
-        self._theme_btn.setText(f"  {icon}  {'Claro' if self._theme_mode == 'dark' else 'Oscuro'}")
-        self._theme_btn.setFont(get_font(10))
-        self._theme_btn.setStyleSheet(
-            "QPushButton { color: #CCCCCC; border: none; text-align: left; "
-            "padding: 8px 16px; font-size: 11px; }"
-            "QPushButton:hover { color: #FF5503; }"
-        )
+        if hasattr(self, "_theme_icon"):
+            self._theme_icon.set_icon("sun" if self._theme_mode == "dark" else "moon")
+            self._theme_icon.set_color(Theme.text_secondary())
 
     def apply_theme(self) -> None:
         if not self._pages:
             return
         self.setStyleSheet(f"QWidget {{ font-family: 'Segoe UI'; background-color: {Theme.bg()}; color: {Theme.text()}; }}")
-        self._header_title.setStyleSheet(f"color: {Theme.text()};")
+        self._header_title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        if hasattr(self, "_header_crumb"):
+            self._header_crumb.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
         if hasattr(self, "_header_search"):
-            self._header_search.setStyleSheet(NEXAStyles.search_input())
+            self._header_search.setStyleSheet(
+                f"QLineEdit {{ border: none; background: transparent; color: {Theme.text()}; "
+                f"font-size: 12px; }}"
+                f"QLineEdit::placeholder {{ color: {Theme.text_muted()}; }}")
+        if hasattr(self, "_sidebar") and self._sidebar is not None:
+            self._sidebar.setStyleSheet(NEXAStyles.sidebar())
+        self._refresh_theme_button()
+        for item in self._nav_buttons.values():
+            item.set_active(item._page_key == self._current_page)
         for key, page in self._pages.items():
             if hasattr(page, "refresh_style"):
                 page.refresh_style()

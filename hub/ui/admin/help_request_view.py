@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
 )
 
 
@@ -38,10 +38,15 @@ class HelpRequestView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        header = QLabel("\U0001f198 Tengo un problema")
+        header_row = QHBoxLayout()
+        header_icon = Icon("flag", 20)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Tengo un problema")
         header.setFont(get_font(20, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
-        layout.addWidget(header)
+        header_row.addWidget(header, stretch=1)
+        layout.addLayout(header_row)
 
         subtitle = QLabel("Cuéntanos qué necesitas hacer y te ayudaremos a encontrar una solución.")
         subtitle.setFont(get_font(12))
@@ -89,7 +94,7 @@ class HelpRequestView(QWidget):
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        submit_btn = QPushButton("\U0001f4e4  Enviar Solicitud")
+        submit_btn = QPushButton("Enviar Solicitud")
         submit_btn.setStyleSheet(NEXAStyles.primary_button())
         submit_btn.setFixedWidth(200)
         submit_btn.clicked.connect(self._on_submit)
@@ -122,7 +127,7 @@ class HelpRequestView(QWidget):
                 data[key] = widget.text().strip()
         self.submitted.emit(data)
         self._result_label.setText(
-            "\u2705 Solicitud enviada. Buscaremos herramientas que puedan ayudarte."
+            "Solicitud enviada. Buscaremos herramientas que puedan ayudarte."
         )
         self._result_frame.setVisible(True)
 

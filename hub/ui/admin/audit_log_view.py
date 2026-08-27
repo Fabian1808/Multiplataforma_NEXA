@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
@@ -10,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
 )
 
 
@@ -26,10 +27,15 @@ class AuditLogView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        header = QLabel("\U0001f4cb Registro de Auditoría")
+        header_row = QHBoxLayout()
+        header_icon = Icon("list", 18)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Registro de Auditoría")
         header.setFont(get_font(18, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
-        layout.addWidget(header)
+        header_row.addWidget(header, stretch=1)
+        layout.addLayout(header_row)
 
         filters_row = QHBoxLayout()
         filters_row.setSpacing(8)
@@ -52,7 +58,7 @@ class AuditLogView(QWidget):
         self._action_filter.setFixedWidth(140)
         filters_row.addWidget(self._action_filter)
 
-        self._refresh_btn = QPushButton("\U0001f504 Actualizar")
+        self._refresh_btn = QPushButton("Actualizar")
         self._refresh_btn.setStyleSheet(NEXAStyles.primary_button())
         self._refresh_btn.setFixedWidth(120)
         filters_row.addWidget(self._refresh_btn)
@@ -97,7 +103,7 @@ class AuditLogView(QWidget):
                 "update": "#F9A825", "view": "#666666",
             }
             color = action_colors.get(entry.get("action", ""), TEXT_MUTED)
-            action_item.setForeground(self._table.palette().brush(0))
+            action_item.setForeground(QColor(color))
             self._table.setItem(i, 2, action_item)
             self._table.setItem(i, 3, QTableWidgetItem(entry.get("module", "")))
             entity = f"{entry.get('entity_type', '')} / {entry.get('entity_name', '')}"

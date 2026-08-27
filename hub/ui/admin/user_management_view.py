@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, ERROR, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, SUCCESS, WARNING, ERROR, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
 )
 
 
@@ -28,7 +28,10 @@ class UserManagementView(QWidget):
         layout.setSpacing(16)
 
         header_row = QHBoxLayout()
-        header = QLabel("\U0001f465 Gestión de Usuarios")
+        header_icon = Icon("users", 18)
+        header_icon.set_color(ACCENT)
+        header_row.addWidget(header_icon)
+        header = QLabel("Gestión de Usuarios")
         header.setFont(get_font(18, bold=True))
         header.setStyleSheet(f"color: {TEXT_PRIMARY};")
         header_row.addWidget(header, stretch=1)
@@ -88,12 +91,15 @@ class UserManagementView(QWidget):
             card_layout.setContentsMargins(16, 12, 16, 12)
             card_layout.setSpacing(12)
 
-            avatar = QLabel("\U0001f464")
-            avatar.setFont(get_font(24))
-            avatar.setFixedSize(48, 48)
-            avatar.setStyleSheet(f"background-color: {ACCENT}20; border-radius: 24px; color: {ACCENT};")
-            avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            card_layout.addWidget(avatar)
+            avatar_frame = QFrame()
+            avatar_frame.setFixedSize(48, 48)
+            avatar_frame.setStyleSheet(f"background-color: {ACCENT}20; border-radius: 24px;")
+            av_lay = QHBoxLayout(avatar_frame)
+            av_lay.setContentsMargins(0, 0, 0, 0)
+            avatar = Icon("user", 22)
+            avatar.set_color(ACCENT)
+            av_lay.addWidget(avatar)
+            card_layout.addWidget(avatar_frame)
 
             info = QVBoxLayout()
             info.setSpacing(2)

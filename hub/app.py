@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import logging
+import os
 import sys
 
 from PySide6.QtCore import Qt, QTimer
@@ -55,7 +56,7 @@ class NexaSplash(QSplashScreen):
         layout.setSpacing(12)
 
         # Logo
-        logo = QLabel("⚡ NEXA")
+        logo = QLabel("NEXA")
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font_logo = QFont("Segoe UI", 36, QFont.Weight.Bold)
         logo.setFont(font_logo)
@@ -161,10 +162,21 @@ class MainWindow(QMainWindow):
             self._services.close()
         except Exception:
             logger.exception("Error al cerrar ServiceContainer")
+        QApplication.quit()
         super().closeEvent(event)
 
 
-def create_app() -> QApplication:
+def create_app() -> tuple[QApplication, "MainWindow"]:
+    # Fuerza renderizado por software para evitar crashes silenciosos de GPU
+    # (Qt 6 + drivers/GPUs remotas o VM en esta máquina). Debe fijarse ANTES
+    # de crear QApplication.
+    if not os.environ.get("QT_QUICK_BACKEND"):
+        os.environ["QT_QUICK_BACKEND"] = "software"
+    if not os.environ.get("QT_OPENGL"):
+        os.environ["QT_OPENGL"] = "software"
+    if not os.environ.get("QT_OPENGL_SOFTWARE"):
+        os.environ["QT_OPENGL_SOFTWARE"] = "1"
+
     app = QApplication(sys.argv)
     app.setApplicationName(__app_name__)
     app.setApplicationVersion(__version__)
@@ -182,11 +194,11 @@ def create_app() -> QApplication:
     splash.set_status("Preparando interfaz...", 75)
     window.show()
 
-    splash.set_status("Listo ✓", 100)
+    splash.set_status("Listo", 100)
     # Cerrar splash con pequeño delay para que se vea el 100%
     QTimer.singleShot(350, splash.close)
 
-    return app
+    return app, window
 
 
 def main() -> None:
@@ -206,13 +218,38 @@ def main() -> None:
         )
         mutex = None
     elif last_error == 183:  # ERROR_ALREADY_EXISTS
-        logger.warning("Otra instancia ya está corriendo — abortando.")
+        logger.warning(
+            "Otra instancia ya está corriendo — abortando. "
+            "Si no ves la ventana, cierra cualquier proceso 'nexa-hub' o "
+            "'python -m hub.app' pendiente y reintenta."
+        )
         ctypes.windll.kernel32.CloseHandle(mutex)
+        print(
+            "[NEXA] Ya hay una instancia abierta. "
+            "Si no la ves, cierra los procesos de NEXA pendientes y vuelve a intentar.",
+            file=sys.stderr,
+        )
         sys.exit(0)
 
     try:
-        app = create_app()
-        sys.exit(app.exec())
+        import signal
+
+        def _sig(signum, frame):
+            logger.warning("CHK: recibida señal %s — frame=%s", signum, frame)
+            sys.exit(128 + signum)
+
+        for _sig_name in ("SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"):
+            _s = getattr(signal, _sig_name, None)
+            if _s is not None:
+                try:
+                    signal.signal(_s, _sig)
+                except Exception:
+                    pass
+
+        app, window = create_app()
+
+        rc = app.exec()
+        sys.exit(rc if isinstance(rc, int) else 0)
     except Exception:
         logger.exception("Error fatal durante la inicialización")
         sys.exit(1)

@@ -67,7 +67,7 @@ class FailureDetailView(QWidget):
         top_row = QHBoxLayout()
         top_row.setSpacing(12)
 
-        back_btn = QPushButton("\u2190 Volver")
+        back_btn = QPushButton("Volver")
         back_btn.setStyleSheet(NEXAStyles.secondary_button())
         back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         back_btn.setFixedWidth(100)
@@ -125,7 +125,7 @@ class FailureDetailView(QWidget):
 
     def set_failures(self, failures: list[dict], app_name: str = "") -> None:
         if app_name:
-            self._title.setText(f"\U0001f6a8 Incidencias \u2014 {app_name}")
+            self._title.setText(f"Incidencias \u2014 {app_name}")
 
         self._table.setRowCount(len(failures))
         self._empty_label.setVisible(len(failures) == 0)
