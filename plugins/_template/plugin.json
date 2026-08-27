@@ -1,0 +1,17 @@
+{
+  "id": "my_new_plugin",
+  "name": "Mi Nueva Herramienta",
+  "description": "Descripción de la herramienta.",
+  "version": "1.0.0",
+  "category": "Otro",
+  "tags": [],
+  "synonyms": [],
+  "owner": "NEXA",
+  "area": "",
+  "status": "beta",
+  "entrypoint": "main",
+  "icon": "",
+  "permissions": [],
+  "dependencies": [],
+  "documentation_url": ""
+}

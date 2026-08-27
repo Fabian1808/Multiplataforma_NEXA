@@ -1,0 +1,17 @@
+{
+  "id": "sap_automation",
+  "name": "Automatización SAP",
+  "description": "Automatiza tareas repetitivas en SAP GUI: descarga masiva de documentos HES, ejecución de macros VBS, gestión de órdenes de compra. Reduce horas de trabajo manual en SAP.",
+  "version": "1.0.0",
+  "category": "SAP",
+  "tags": ["sap", "gui", "automation", "hes", "vbs", "macros", "pdf", "descarga"],
+  "synonyms": ["sap", "hes", "documento", "descargar", "imprimir", "ml81n", "sp01", "servicio", "orden compra"],
+  "owner": "Fabian",
+  "area": "Contracts",
+  "status": "oficial",
+  "entrypoint": "main",
+  "icon": "🏭",
+  "permissions": ["read_files", "write_files", "execute", "sap_com"],
+  "dependencies": ["PySide6", "pywin32", "openpyxl", "PyYAML"],
+  "documentation_url": ""
+}

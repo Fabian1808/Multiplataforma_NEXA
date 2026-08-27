@@ -1,0 +1,17 @@
+{
+  "id": "horas_extras",
+  "name": "Sistema de Horas Extras",
+  "description": "Automatiza el cálculo y validación de horas extras contra marcaciones RAINBOW. Detecta inconsistencias, genera trazabilidad y mide impacto económico.",
+  "version": "1.0.0",
+  "category": "Automatización",
+  "tags": ["horas extras", "rainbow", "conciliación", "validación", "nómina", "RRHH"],
+  "synonyms": ["horas", "extras", "rainbow", "marcaciones", "turnos", "validar horas", "calcular horas"],
+  "owner": "Fabian",
+  "area": "Contracts",
+  "status": "oficial",
+  "entrypoint": "main",
+  "icon": "⏱",
+  "permissions": ["read_files", "write_files", "execute"],
+  "dependencies": ["openpyxl", "pywin32", "rapidfuzz"],
+  "documentation_url": ""
+}
