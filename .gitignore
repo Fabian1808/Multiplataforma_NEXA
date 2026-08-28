@@ -15,3 +15,12 @@ venv/
 *.db-wal
 *.db-shm
 Sistema_Automatizacion_SAP-master/
+
+# Artefactos de diagnóstico local (no versionar)
+Diagnostico_NEXA.bat
+diag_wrapper.py
+diag_exit.txt
+
+# Fuentes originales de logo en la raíz (las copias oficiales viven en assets/)
+logo con nombre.png
+logo para acceso directo.png
