@@ -14,7 +14,9 @@ Identidad NEXA:
 from __future__ import annotations
 
 import json
+import math
 import os
+import re
 from pathlib import Path
 from typing import Callable
 
@@ -65,12 +67,12 @@ PLUGIN_STATUS_BADGES = {
 #  dp4  #28282C  cards
 #  dp8  #2E2E34  cards hover / dialogs
 # ---------------------------------------------------------------------------
-DARK_BG            = "#121214"
+DARK_BG            = "#111111"
 DARK_SURFACE       = "#1C1C1F"
 DARK_SURFACE_2     = "#202024"
 DARK_CARD          = "#28282C"
 DARK_CARD_ELEVATED = "#2E2E34"
-DARK_SIDEBAR       = "#1C1C1F"
+DARK_SIDEBAR       = "#171717"
 DARK_HEADER        = "#202024"
 DARK_BORDER        = "#38383E"
 DARK_BORDER_STRONG = "#4A4A52"
@@ -84,13 +86,39 @@ DARK_ACTIVE_BG     = "#FF550318"
 DARK_SECTION_LABEL = "#5E5E6A"
 
 # ---------------------------------------------------------------------------
+# Sidebar — paleta profesional dedicada (claro/oscuro)
+#   Claro: fondo #FFFFFF, activo #FF5503, hover #FFF1EB, seleccionado #FFF3ED
+#   Oscuro: fondo #171717, activo #FF6A2A, hover #292929, seleccionado #2A1A14
+# ---------------------------------------------------------------------------
+LIGHT_SIDEBAR_TEXT      = "#1F1F1F"
+DARK_SIDEBAR_TEXT       = "#F5F5F5"
+LIGHT_SIDEBAR_TEXT_2    = "#6B7280"
+DARK_SIDEBAR_TEXT_2     = "#A3A3A3"
+LIGHT_SIDEBAR_ICON      = "#3B3B3B"
+DARK_SIDEBAR_ICON       = "#D4D4D4"
+LIGHT_SIDEBAR_HOVER     = "#FFF1EB"
+DARK_SIDEBAR_HOVER      = "#292929"
+LIGHT_SIDEBAR_ACTIVE_BG = "#FFF3ED"
+DARK_SIDEBAR_ACTIVE_BG  = "#2A1A14"
+LIGHT_SIDEBAR_BORDER    = "#E5E7EB"
+DARK_SIDEBAR_BORDER     = "#2D2D2D"
+LIGHT_SIDEBAR_ACTIVE    = "#FF5503"
+DARK_SIDEBAR_ACTIVE     = "#FF6A2A"
+# Relleno neutro ligero de tarjetas/paneles internos del sidebar.
+LIGHT_SIDEBAR_CARD      = "#F7F8FA"
+DARK_SIDEBAR_CARD       = "#1E1E1E"
+# Borde de la tarjeta del logo (blanca en ambos modos): en oscuro un gris medio.
+LIGHT_LOGO_CARD_BORDER  = "#E5E7EB"
+DARK_LOGO_CARD_BORDER   = "#3A3A3A"
+
+# ---------------------------------------------------------------------------
 # MODO CLARO — moderno y limpio con estructura visual clara
 # ---------------------------------------------------------------------------
 LIGHT_BG             = "#F5F5F7"
 LIGHT_SURFACE        = "#FFFFFF"
 LIGHT_CARD           = "#FFFFFF"
 LIGHT_CARD_ELEVATED  = "#F9F9FB"
-LIGHT_SIDEBAR        = "#FAFAFA"
+LIGHT_SIDEBAR        = "#FFFFFF"
 LIGHT_HEADER         = "#FFFFFF"
 LIGHT_BORDER         = "#E5E5EA"
 LIGHT_BORDER_STRONG  = "#C7C7CC"
@@ -167,7 +195,90 @@ def get_font(size: int = 12, bold: bool = False, italic: bool = False,
 
 # ---------------------------------------------------------------------------
 # Iconos lineales — familia propia, sin emojis
+#  Variantes "outline" basadas en la convención Lucide (grid 24x24, stroke 2).
 # ---------------------------------------------------------------------------
+_SVG_TOKEN_RE = re.compile(r"([MmLlHhVvCcSsQqTtAaZz])|([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)")
+
+
+def _arc_cubics(ax, ay, rx, ry, rot_deg, large_arc, sweep, bx, by):
+    """Convierte un arco elíptico SVG a segmentos cúbicos de Bézier.
+
+    Recibe coordenadas de inicio (ax, ay), radios rx/ry, rotación en grados,
+    flags large-arc/sweep y fin (bx, by). Devuelve lista de tuplas
+    ((c1x, c1y), (c2x, c2y), (x, y)).
+    """
+    if ax == bx and ay == by:
+        return []
+    phi = math.radians(rot_deg)
+    cos_p, sin_p = math.cos(phi), math.sin(phi)
+    dx = (ax - bx) / 2.0
+    dy = (ay - by) / 2.0
+    tx = cos_p * dx + sin_p * dy
+    ty = -sin_p * dx + cos_p * dy
+    rx, ry = abs(rx), abs(ry)
+    rat = tx * tx / (rx * rx) if rx else 0.0
+    rat += ty * ty / (ry * ry) if ry else 0.0
+    if rat > 1.0:
+        s = math.sqrt(rat)
+        rx *= s
+        ry *= s
+    den = rx * rx * ty * ty + ry * ry * tx * tx
+    if den:
+        num = rx * rx * ry * ry - rx * rx * ty * ty - ry * ry * tx * tx
+        rad = math.sqrt(max(num, 0.0) / den)
+        if large_arc == sweep:
+            rad = -rad
+    else:
+        rad = 0.0
+    ccx = rad * rx * ty / ry if ry else 0.0
+    ccy = -rad * ry * tx / rx if rx else 0.0
+    cx = cos_p * ccx - sin_p * ccy + (ax + bx) / 2.0
+    cy = sin_p * ccx + cos_p * ccy + (ay + by) / 2.0
+
+    def _ang(ux, uy, vx, vy):
+        dot = ux * vx + uy * vy
+        nm = math.hypot(ux, uy) * math.hypot(vx, vy)
+        if nm == 0:
+            return 0.0
+        a = math.acos(max(-1.0, min(1.0, dot / nm)))
+        return -a if ux * vy - uy * vx < 0 else a
+
+    u1x, u1y = (tx - ccx) / rx if rx else 0.0, (ty - ccy) / ry if ry else 0.0
+    u2x, u2y = (-tx - ccx) / rx if rx else 0.0, (-ty - ccy) / ry if ry else 0.0
+    theta1 = _ang(1.0, 0.0, u1x, u1y)
+    dtheta = _ang(u1x, u1y, u2x, u2y)
+    if not sweep and dtheta > 0:
+        dtheta -= 2 * math.pi
+    elif sweep and dtheta < 0:
+        dtheta += 2 * math.pi
+
+    def _pt(theta):
+        return (
+            cx + rx * math.cos(theta) * cos_p - ry * math.sin(theta) * sin_p,
+            cy + rx * math.cos(theta) * sin_p + ry * math.sin(theta) * cos_p,
+        )
+
+    def _tan(theta):
+        return (
+            -(rx * math.sin(theta)) * cos_p - (ry * math.cos(theta)) * sin_p,
+            -(rx * math.sin(theta)) * sin_p + (ry * math.cos(theta)) * cos_p,
+        )
+
+    nsegs = max(1, int(math.ceil(abs(dtheta) / (math.pi / 2.0))))
+    dseg = dtheta / nsegs
+    t0, out = theta1, []
+    for _ in range(nsegs):
+        t1 = t0 + dseg
+        a = 4.0 / 3.0 * math.tan(dseg / 4.0)
+        x1, y1 = _pt(t0)
+        x2, y2 = _pt(t1)
+        dx1, dy1 = _tan(t0)
+        dx2, dy2 = _tan(t1)
+        out.append(((x1 + a * dx1, y1 + a * dy1),
+                    (x2 - a * dx2, y2 - a * dy2),
+                    (x2, y2)))
+        t0 = t1
+    return out
 class Icon(QLabel):
     """Icono lineal monocromo dibujado con QPainter.
 
@@ -178,15 +289,79 @@ class Icon(QLabel):
     """
 
     _PATHS: dict[str, list] = {
-        "home":     [("path", "M4 11 L12 4 L20 11"), ("path", "M6 11 v8 h12 v-8")],
+        "home":     [
+            ("path", "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"),
+            ("path", "M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"),
+        ],
         "grid":     [
             ("rect", (3, 3, 7, 7)), ("rect", (14, 3, 7, 7)),
             ("rect", (3, 14, 7, 7)), ("rect", (14, 14, 7, 7)),
         ],
-        "search":   [("circle", (10, 10, 6)), ("path", "M15 15 L21 21")],
+        "search":   [("circle", (11, 11, 8)), ("path", "m21 21-4.34-4.34")],
         "apps":     [
             ("rect", (4, 4, 5, 5)), ("rect", (15, 4, 5, 5)),
             ("rect", (4, 15, 5, 5)), ("rect", (15, 15, 5, 5)),
+        ],
+        "house":    [
+            ("path", "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"),
+            ("path", "M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"),
+        ],
+        "layout-grid": [
+            ("rect", (3, 3, 7, 7)), ("rect", (14, 3, 7, 7)),
+            ("rect", (14, 14, 7, 7)), ("rect", (3, 14, 7, 7)),
+        ],
+        "app-window": [
+            ("rect", (2, 4, 20, 16)),
+            ("path", "M10 4v4"), ("path", "M2 8h20"), ("path", "M6 4v4"),
+        ],
+        "lightbulb": [
+            ("path", "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"),
+            ("path", "M9 18h6"), ("path", "M10 22h4"),
+        ],
+        "clipboard-list": [
+            ("rect", (8, 2, 8, 4)),
+            ("path", "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"),
+            ("path", "M12 11h4"), ("path", "M12 16h4"),
+            ("dot", (8, 11)), ("dot", (8, 16)),
+        ],
+        "triangle-alert": [
+            ("path", "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"),
+            ("path", "M12 9v4"), ("dot", (12, 17)),
+        ],
+        "book-open": [
+            ("path", "M12 5v16"),
+            ("path", "M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"),
+        ],
+        "users-round": [
+            ("path", "M18 21a8 8 0 0 0-16 0"),
+            ("circle", (10, 8, 5)),
+            ("path", "M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"),
+        ],
+        "chart":    [
+            ("path", "M4 20 H20"), ("path", "M6 16 v-5"),
+            ("path", "M12 16 v-9"), ("path", "M18 16 v-7"),
+        ],
+        "chart-column": [
+            ("path", "M3 3v16a2 2 0 0 0 2 2h16"),
+            ("path", "M18 17V9"), ("path", "M13 17V5"), ("path", "M8 17v-3"),
+        ],
+        "shield":   [("path", "M12 3 L20 6 v6 c0 5-3.5 8-8 9 C7.5 20 4 17 4 12 V6 Z")],
+        "shield-check": [
+            ("path", "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"),
+            ("path", "m9 12 2 2 4-4"),
+        ],
+        "user-cog": [
+            ("path", "M10 15H6a4 4 0 0 0-4 4v2"),
+            ("circle", (9, 7, 4)),
+            ("circle", (18, 15, 3)),
+            ("path", "m14.305 16.53.923-.382"),
+            ("path", "m15.228 13.852-.923-.383"),
+            ("path", "m16.852 12.228-.383-.923"),
+            ("path", "m16.852 17.772-.383.924"),
+            ("path", "m19.148 12.228.383-.923"),
+            ("path", "m19.53 18.696-.382-.924"),
+            ("path", "m20.772 13.852.924-.383"),
+            ("path", "m20.772 16.148.924.383"),
         ],
         "file":     [("path", "M6 3 H14 L18 7 V21 H6 Z"), ("path", "M14 3 v4 h4")],
         "list":     [
@@ -222,11 +397,15 @@ class Icon(QLabel):
         ],
         "sun":      [
             ("circle", (12, 12, 4)),
-            ("path", "M12 2 v2 M12 20 v2 M2 12 h2 M20 12 h2 "
-                     "M4.9 4.9 L6.3 6.3 M17.7 17.7 l1.4 1.4 "
-                     "M19.1 4.9 l-1.4 1.4 M6.3 17.7 l-1.4 1.4"),
+            ("path", "M12 2v2 M12 20v2 M2 12h2 M20 12h2 "
+                     "m-17.07-7.07 1.41 1.41 m15.32 15.32 1.41 1.41 m-2.66-16.66 "
+                     "1.41 1.41 M6.34 17.66l-1.41 1.41"),
         ],
-        "moon":     [("path", "M20 14 A8 8 0 1 1 10 4 a6 6 0 0 0 10 10")],
+        "moon":     [("path", "M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401")],
+        "panel-left": [
+            ("path", "M7 3 H19 a2 2 0 0 1 2 2 v14 a2 2 0 0 1-2 2 H7 Z"),
+            ("path", "M7 3 v18"),
+        ],
         "logout":   [
             ("path", "M14 4 H5 a2 2 0 0 0-2 2 v12 a2 2 0 0 0 2 2 h9"),
             ("path", "M17 8 l4 4 -4 4"), ("path", "M21 12 H9"),
@@ -324,7 +503,7 @@ class Icon(QLabel):
         p = QPainter(pm)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         pen = QPen(QColor(self._color))
-        pen.setWidthF(max(1.5, size / 11))
+        pen.setWidthF(min(2.0, max(1.8, size / 12)))
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         p.setPen(pen)
@@ -357,41 +536,145 @@ class Icon(QLabel):
         return pm
 
     def _parse_path(self, d: str, size: int):
+        """Convierte una ruta SVG (datos de iconos outline tipo Lucide) a QPainterPath.
+
+        Soporta comandos absolutos y relativos: M L H V C S Q T A Z, con la
+        repetición implícita de coordenadas de SVG. Coordenadas en grid 24x24.
+        """
         from PySide6.QtGui import QPainterPath
+
+        s      = size / 24.0
         path   = QPainterPath()
-        tokens = d.replace(",", " ").split()
+        tokens: list = []
+        for m in _SVG_TOKEN_RE.finditer(d):
+            tokens.append(m.group(1) if m.group(1) else float(m.group(2)))
+
         i = 0
-        cx = cy = 0.0
         cmd: str | None = None
+        cx = cy = 0.0
+        sx = sy = 0.0
+        ctrl: tuple[float, float] | None = None
 
-        def _n(idx: int) -> float:
-            return float(tokens[idx]) * size / 24.0
+        def num() -> float:
+            return float(tokens[i])
 
-        guard     = 0
-        max_guard = len(tokens) * 4 + 8
+        # Evita bucles infinitos ante datos mal formados.
+        guard = 0
+        max_guard = len(tokens) * 8 + 16
         while i < len(tokens) and guard < max_guard:
             guard += 1
             tok = tokens[i]
-            if tok and tok[0].isalpha():
-                cmd = tok; i += 1; continue
-            if cmd in ("M", "m"):
-                x, y = _n(i), _n(i + 1)
-                if cmd == "m": x, y = cx + x, cy + y
-                path.moveTo(x, y); cx, cy = x, y; i += 2; cmd = "L"
-            elif cmd in ("L", "l"):
-                x, y = _n(i), _n(i + 1)
-                if cmd == "l": x, y = cx + x, cy + y
-                path.lineTo(x, y); cx, cy = x, y; i += 2
-            elif cmd in ("H", "h"):
-                x = _n(i)
-                if cmd == "h": x = cx + x
-                path.lineTo(x, cy); cx = x; i += 1
-            elif cmd in ("V", "v"):
-                y = _n(i)
-                if cmd == "v": y = cy + y
-                path.lineTo(cx, y); cy = y; i += 1
-            elif cmd == "Z":
-                path.closeSubpath(); i += 1
+            if isinstance(tok, str):
+                cmd = tok
+                i += 1
+                if cmd in "Zz":
+                    path.closeSubpath()
+                    cx, cy = sx, sy
+                    ctrl = None
+                continue
+
+            if cmd is None:
+                break
+            if cmd in "Zz":  # número después de cerrar subruta: se ignora
+                i += 1
+                continue
+
+            if cmd in "Mm":
+                x, y = num() * s, num() * s
+                if cmd == "m":
+                    x += cx
+                    y += cy
+                path.moveTo(x, y)
+                cx, cy, sx, sy = x, y, x, y
+                cmd = "l" if cmd == "m" else "L"
+                ctrl = None
+                i += 2
+            elif cmd in "Ll":
+                x, y = num() * s, num() * s
+                if cmd == "l":
+                    x += cx
+                    y += cy
+                path.lineTo(x, y)
+                cx, cy = x, y
+                ctrl = None
+                i += 2
+            elif cmd in "Hh":
+                x = num() * s
+                if cmd == "h":
+                    x += cx
+                path.lineTo(x, cy)
+                cx = x
+                ctrl = None
+                i += 1
+            elif cmd in "Vv":
+                y = num() * s
+                if cmd == "v":
+                    y += cy
+                path.lineTo(cx, y)
+                cy = y
+                ctrl = None
+                i += 1
+            elif cmd in "Cc":
+                x1, y1 = num() * s, num() * s
+                x2, y2 = num() * s, num() * s
+                x, y   = num() * s, num() * s
+                if cmd == "c":
+                    x1, y1 = cx + x1, cy + y1
+                    x2, y2 = cx + x2, cy + y2
+                    x, y   = cx + x, cy + y
+                path.cubicTo(x1, y1, x2, y2, x, y)
+                ctrl = (x2, y2)
+                cx, cy = x, y
+                i += 6
+            elif cmd in "Ss":
+                if ctrl is not None:
+                    x1, y1 = 2 * cx - ctrl[0], 2 * cy - ctrl[1]
+                else:
+                    x1, y1 = cx, cy
+                x2, y2 = num() * s, num() * s
+                x, y   = num() * s, num() * s
+                if cmd == "s":
+                    x2, y2 = cx + x2, cy + y2
+                    x, y   = cx + x, cy + y
+                path.cubicTo(x1, y1, x2, y2, x, y)
+                ctrl = (x2, y2)
+                cx, cy = x, y
+                i += 4
+            elif cmd in "Qq":
+                qx, qy = num() * s, num() * s
+                x, y   = num() * s, num() * s
+                if cmd == "q":
+                    qx, qy = cx + qx, cy + qy
+                    x, y   = cx + x, cy + y
+                path.quadTo(qx, qy, x, y)
+                ctrl = (qx, qy)
+                cx, cy = x, y
+                i += 4
+            elif cmd in "Tt":
+                if ctrl is not None:
+                    qx, qy = 2 * cx - ctrl[0], 2 * cy - ctrl[1]
+                else:
+                    qx, qy = cx, cy
+                x, y = num() * s, num() * s
+                if cmd == "t":
+                    x, y = cx + x, cy + y
+                path.quadTo(qx, qy, x, y)
+                ctrl = (qx, qy)
+                cx, cy = x, y
+                i += 2
+            elif cmd in "Aa":
+                rx, ry = num() * s, num() * s
+                rot    = num()
+                laf    = int(num())
+                sf     = int(num())
+                x, y   = num() * s, num() * s
+                if cmd == "a":
+                    x, y = cx + x, cy + y
+                for c1, c2, end in _arc_cubics(cx, cy, rx, ry, rot, laf, sf, x, y):
+                    path.cubicTo(c1[0], c1[1], c2[0], c2[1], end[0], end[1])
+                cx, cy = x, y
+                ctrl = None
+                i += 7
             else:
                 i += 1
         return path
@@ -471,26 +754,46 @@ class Theme:
     @staticmethod
     def section_label()  -> str: return t(LIGHT_SECTION_LABEL,  DARK_SECTION_LABEL)
 
+    # ── Sidebar ────────────────────────────────────────────────────────────
+    @staticmethod
+    def sidebar_text()           -> str: return t(LIGHT_SIDEBAR_TEXT,      DARK_SIDEBAR_TEXT)
+    @staticmethod
+    def sidebar_text_secondary() -> str: return t(LIGHT_SIDEBAR_TEXT_2,    DARK_SIDEBAR_TEXT_2)
+    @staticmethod
+    def sidebar_icon()           -> str: return t(LIGHT_SIDEBAR_ICON,      DARK_SIDEBAR_ICON)
+    @staticmethod
+    def sidebar_hover()          -> str: return t(LIGHT_SIDEBAR_HOVER,     DARK_SIDEBAR_HOVER)
+    @staticmethod
+    def sidebar_active_bg()      -> str: return t(LIGHT_SIDEBAR_ACTIVE_BG, DARK_SIDEBAR_ACTIVE_BG)
+    @staticmethod
+    def sidebar_border()         -> str: return t(LIGHT_SIDEBAR_BORDER,    DARK_SIDEBAR_BORDER)
+    @staticmethod
+    def sidebar_active()         -> str: return t(LIGHT_SIDEBAR_ACTIVE,    DARK_SIDEBAR_ACTIVE)
+    @staticmethod
+    def logo_card_border()       -> str: return t(LIGHT_LOGO_CARD_BORDER,  DARK_LOGO_CARD_BORDER)
+    @staticmethod
+    def sidebar_card()           -> str: return t(LIGHT_SIDEBAR_CARD,      DARK_SIDEBAR_CARD)
+
 
 # ---------------------------------------------------------------------------
 # NEXAStyles — generadores de estilos QSS
 # ---------------------------------------------------------------------------
 class NEXAStyles:
-    SIDEBAR_WIDTH = 256
-    HEADER_HEIGHT = 56
-    CARD_RADIUS   = 12
-    BUTTON_RADIUS = 8
-    INPUT_RADIUS  = 8
-    PADDING_CARD  = 16
+    SIDEBAR_WIDTH            = 256
+    SIDEBAR_COLLAPSED_WIDTH  = 72
+    HEADER_HEIGHT            = 56
+    CARD_RADIUS              = 12
+    BUTTON_RADIUS            = 8
+    INPUT_RADIUS             = 8
+    PADDING_CARD             = 16
 
     @staticmethod
     def sidebar() -> str:
+        # El ancho lo controla el widget (permite animar colapso/expansión).
         return (
             f"QWidget#sidebar {{"
             f" background-color: {Theme.sidebar_bg()};"
-            f" border-right: 1px solid {Theme.border()};"
-            f" min-width: {NEXAStyles.SIDEBAR_WIDTH}px;"
-            f" max-width: {NEXAStyles.SIDEBAR_WIDTH}px; }}"
+            f" border-right: 1px solid {Theme.sidebar_border()}; }}"
         )
 
     @staticmethod
@@ -638,17 +941,33 @@ class NEXAStyles:
 
     @staticmethod
     def sidebar_section_label() -> str:
+        # Alineado con la columna de texto de los ítems (icono 20 + gap 12).
         return (
-            f"QLabel {{ color: {Theme.section_label()}; font-family: 'Segoe UI';"
-            f" font-size: 10px; font-weight: 700; padding: 12px 8px 4px 8px;"
-            f" letter-spacing: 1.4px; background: transparent; border: none; }}"
+            f"QLabel#sidebarSectionLabel {{ color: {Theme.sidebar_text_secondary()};"
+            f" font-family: 'Segoe UI'; font-size: 10px; font-weight: 600;"
+            f" padding: 18px 8px 6px 59px; letter-spacing: 1.4px;"
+            f" background: transparent; border: none; }}"
         )
 
     @staticmethod
     def sidebar_user_box() -> str:
         return (
             f"QFrame#sidebarUser {{ background-color: {Theme.sidebar_bg()};"
-            f" border-top: 1px solid {Theme.border()}; }}"
+            f" border-top: 1px solid {Theme.sidebar_border()}; }}"
+        )
+
+    @staticmethod
+    def logo_card() -> str:
+        return (
+            f"QFrame#logoCard {{ background-color: #FFFFFF;"
+            f" border: 1px solid {Theme.logo_card_border()}; border-radius: 10px; }}"
+        )
+
+    @staticmethod
+    def sidebar_user_card() -> str:
+        return (
+            f"QFrame#sidebarUserCard {{ background-color: {Theme.sidebar_card()};"
+            f" border-radius: 10px; }}"
         )
 
     # ── Badges / KPIs / Tablas ───────────────────────────────────────────────

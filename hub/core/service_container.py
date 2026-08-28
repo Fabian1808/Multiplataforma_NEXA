@@ -170,3 +170,7 @@ class ServiceContainer:
             self.search.close()
         except Exception:
             pass
+        try:
+            self.app_launcher.close()
+        except Exception:
+            pass

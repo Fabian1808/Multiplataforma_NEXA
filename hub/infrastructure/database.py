@@ -534,7 +534,9 @@ class Database:
         return self._conn
 
     def close(self) -> None:
-        if self._conn:
+        with self._lock:
+            if not self._conn:
+                return
             try:
                 self._conn.commit()
             except Exception:

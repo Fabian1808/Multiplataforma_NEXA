@@ -6,10 +6,13 @@ RBAC-based navigation, login flow, dark/light theme, all views integrated.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QShowEvent
+from PySide6.QtCore import (
+    Qt, Signal, QThread, QVariantAnimation, QEasingCurve,
+)
+from PySide6.QtGui import QShowEvent, QColor, QPixmap
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QStackedWidget, QVBoxLayout, QWidget, QMessageBox, QScrollArea,
@@ -49,6 +52,20 @@ from hub.ui.reports.reports_center_view import ReportsCenterView
 from hub.ui.search.search_view import SearchView
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Logo corporativo (assets/logo_brand.png). Si falta, se usa el wordmark NEXA.
+# ---------------------------------------------------------------------------
+_LOGO_PATH_CACHE: str | None = None
+
+
+def _logo_path() -> str | None:
+    global _LOGO_PATH_CACHE
+    if _LOGO_PATH_CACHE is None:
+        p = Path(__file__).resolve().parent.parent.parent / "assets" / "logo_brand.png"
+        _LOGO_PATH_CACHE = str(p) if p.is_file() else None
+    return _LOGO_PATH_CACHE
 
 
 # ---------------------------------------------------------------------------
@@ -131,10 +148,11 @@ class _BackgroundWorker(QThread):
 # Sidebar nav item (icono + texto con estado activo/hover)
 # ---------------------------------------------------------------------------
 class _NavItem(QWidget):
-    """Ítem de navegación del sidebar: icono lineal + etiqueta.
+    """Ítem de navegación del sidebar.
 
-    Estado activo: barra de acento a la izquierda + fondo sutil, sin bloques
-    pesados. Navegación limpia tipo SaaS.
+    Estructura idéntica en todos los ítems: [accent 3px] [icono 20px] [gap 12px] Texto.
+    Estados normal / hover (160 ms de transición) / activo (barra acento), foco de
+    teclado visible y tooltip para accesibilidad y modo colapsado.
     """
 
     def __init__(self, icon_name: str, text: str, page_key: str,
@@ -142,69 +160,171 @@ class _NavItem(QWidget):
         super().__init__(parent)
         self._page_key = page_key
         self._active = False
+        self._hovered = False
+        self._focused = False
+        self._cur_bg = QColor(0, 0, 0, 0)
+        self._comp: dict | None = None
+        self._pending: dict | None = None
+        self.setObjectName("navItem")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(38)
+        self.setFixedHeight(40)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName(f"Sección {text}")
+        self.setToolTip(text)
 
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(10, 6, 10, 6)
-        lay.setSpacing(10)
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(10, 0, 10, 0)
+        self._layout.setSpacing(11)
 
-        self._indicator = QFrame()
-        self._indicator.setFixedSize(3, 20)
-        self._indicator.setStyleSheet("border: none;")
+        self._accent = QFrame()
+        self._accent.setObjectName("accent")
+        self._accent.setFixedSize(3, 20)
 
-        layout_ind = QVBoxLayout(self._indicator)
+        self._icon = Icon(icon_name, 20)
+        self._icon.setFixedSize(24, 24)
+        self._icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self._icon = Icon(icon_name, 18)
-        self._icon.set_color(Theme.text_secondary())
         self._label = QLabel(text)
-        self._label.setFont(get_font(13, weight=600 if self._active else 400))
+        self._label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
-        lay.addWidget(self._indicator)
-        lay.addWidget(self._icon)
-        lay.addWidget(self._label)
-        lay.addStretch()
+        self._layout.addWidget(self._accent)
+        self._layout.addWidget(self._icon)
+        self._layout.addWidget(self._label)
+        self._layout.addStretch()
 
         self._on_click = on_click
-        self._apply_style()
 
-    def _apply_style(self) -> None:
+        self._anim = QVariantAnimation(self)
+        self._anim.setDuration(160)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.valueChanged.connect(self._on_anim_value)
+
+        self.refresh_theme()
+
+    # ------------------------------------------------------------------
+    def _state(self) -> dict:
         if self._active:
-            bg = Theme.active_bg()
-            tx = ACCENT
-            ind = ACCENT
-            weight = 600
-        else:
-            bg = "transparent"
-            tx = Theme.text() if not is_dark() else "#EDEDF3"
-            ind = "transparent"
-            weight = 400
-        self._indicator.setStyleSheet(f"background-color: {ind}; border-radius: 2px; border: none;")
-        self._icon.set_color(tx)
-        self._label.setStyleSheet(f"color: {tx}; background: transparent; border: none;")
-        self._label.setFont(get_font(13, weight=weight))
+            return {
+                "bg":  QColor(Theme.sidebar_active_bg()),
+                "tx":  Theme.sidebar_active(),
+                "ic":  Theme.sidebar_active(),
+                "acc": Theme.sidebar_active(),
+                "w":   600,
+            }
+        if self._hovered:
+            return {
+                "bg":  QColor(Theme.sidebar_hover()),
+                "tx":  Theme.sidebar_text(),
+                "ic":  Theme.sidebar_text(),
+                "acc": "transparent",
+                "w":   500,
+            }
+        return {
+            "bg":  QColor(0, 0, 0, 0),
+            "tx":  Theme.sidebar_text(),
+            "ic":  Theme.sidebar_icon(),
+            "acc": "transparent",
+            "w":   500,
+        }
+
+    def _apply_state(self, instant: bool = False) -> None:
+        st = self._state()
+        end = QColor(st["bg"])
+        self._pending = st
+        if instant or self._cur_bg == end:
+            self._anim.stop()
+            self._cur_bg = end
+            self._comp = st
+            self._render()
+            return
+        self._anim.stop()
+        self._anim.setStartValue(QColor(self._cur_bg))
+        self._anim.setEndValue(end)
+        self._anim.start()
+
+    def _on_anim_value(self, value) -> None:
+        self._cur_bg = QColor(value)
+        self._comp = self._pending or self._state()
+        self._render()
+
+    def _render(self) -> None:
+        bg  = self._cur_bg.name(QColor.NameFormat.HexArgb)
+        st  = self._comp or self._state()
+        foc = (Theme.sidebar_active() + "66") if self._focused else "transparent"
+        self._accent.setStyleSheet(
+            f"QFrame#accent {{ background-color: {st['acc']}; border-radius: 2px; border: none; }}"
+        )
+        self._icon.set_color(st["ic"])
+        self._label.setObjectName("navItemLabel")
+        self._label.setStyleSheet(
+            f"QLabel#navItemLabel {{ color: {st['tx']}; background: transparent; border: none; }}")
+        self._label.setFont(get_font(13, weight=st["w"]))
         self.setStyleSheet(
-            f"_NavItem {{ background-color: {bg}; border-radius: 8px; }}"
+            f"_NavItem#navItem {{ background-color: {bg};"
+            f" border: 1px solid {foc}; border-radius: 8px; }}"
         )
 
+    # ------------------------------------------------------------------
+    # API pública
+    # ------------------------------------------------------------------
     def set_active(self, active: bool) -> None:
+        if self._active == active:
+            return
         self._active = active
-        self._apply_style()
+        self._hovered = False
+        self._apply_state()
 
+    def refresh_theme(self) -> None:
+        self._apply_state(instant=True)
+
+    def set_collapsed(self, collapsed: bool) -> None:
+        self._label.setVisible(not collapsed)
+        if collapsed:
+            self._accent.setVisible(False)
+            self._layout.setContentsMargins(20, 0, 20, 0)
+            self._layout.setSpacing(0)
+        else:
+            self._accent.setVisible(True)
+            self._layout.setContentsMargins(10, 0, 10, 0)
+            self._layout.setSpacing(11)
+
+    # ------------------------------------------------------------------
+    # Eventos
+    # ------------------------------------------------------------------
     def mousePressEvent(self, event) -> None:
         if self._on_click:
             self._on_click(self._page_key)
         super().mousePressEvent(event)
 
+    def keyPressEvent(self, event) -> None:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            if self._on_click:
+                self._on_click(self._page_key)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
     def enterEvent(self, event) -> None:  # hover
         if not self._active:
-            bg = Theme.hover_bg()
-            self.setStyleSheet(f"_NavItem {{ background-color: {bg}; border-radius: 8px; }}")
+            self._hovered = True
+            self._apply_state()
         super().enterEvent(event)
 
     def leaveEvent(self, event) -> None:
-        self._apply_style()
+        self._hovered = False
+        self._apply_state()
         super().leaveEvent(event)
+
+    def focusInEvent(self, event) -> None:
+        self._focused = True
+        self._render()
+        super().focusInEvent(event)
+
+    def focusOutEvent(self, event) -> None:
+        self._focused = False
+        self._render()
+        super().focusOutEvent(event)
 
 
 # ---------------------------------------------------------------------------
@@ -406,29 +526,61 @@ class Shell(QWidget):
     def _create_sidebar(self) -> QWidget:
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
+        sidebar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         sidebar.setStyleSheet(NEXAStyles.sidebar())
+        self._sidebar = sidebar
+        self._sidebar_collapsed = False
+        self._sidebar_icons: list[Icon] = []
+        self._hover_frames: list[QFrame] = []
 
         outer = QVBoxLayout(sidebar)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # ---- Logo ----
-        logo_frame = QFrame()
-        logo_layout = QHBoxLayout(logo_frame)
-        logo_layout.setContentsMargins(20, 18, 20, 14)
-        logo_layout.setSpacing(10)
-        logo_icon = Icon("plugin", 22)
-        logo_icon.set_color(ACCENT)
-        logo_layout.addWidget(logo_icon)
-        logo_text = QLabel("NEXA")
-        logo_text.setFont(get_font(17, weight=700))
-        logo_text.setStyleSheet(
-            f"color: {Theme.text() if not is_dark() else '#FFFFFF'}; background: transparent; border: none;")
-        logo_layout.addWidget(logo_text)
-        logo_layout.addStretch()
-        outer.addWidget(logo_frame)
+        outer.addWidget(self._build_brand_row())
+        outer.addWidget(self._build_nav_scroll(), stretch=1)
+        outer.addWidget(self._build_bottom_panel())
 
-        # ---- Navegación (scrollable) ----
+        sidebar.setFixedWidth(NEXAStyles.SIDEBAR_WIDTH)
+        return sidebar
+
+    def _build_brand_row(self) -> QWidget:
+        row = QWidget()
+        row.setObjectName("sidebarBrand")
+        self._brand_row_layout = QHBoxLayout(row)
+        self._brand_row_layout.setContentsMargins(12, 12, 10, 12)
+        self._brand_row_layout.setSpacing(8)
+
+        self._logo_card = QFrame()
+        self._logo_card.setObjectName("logoCard")
+        self._logo_card.setFixedHeight(42)
+        self._logo_card.setStyleSheet(NEXAStyles.logo_card())
+        card_lay = QHBoxLayout(self._logo_card)
+        card_lay.setContentsMargins(8, 4, 8, 4)
+        card_lay.setSpacing(6)
+
+        self._brand_logo = QLabel()
+        self._brand_logo.setObjectName("brandLogo")
+        if _logo_path():
+            pm = QPixmap(_logo_path())
+            pm = pm.scaledToHeight(32, Qt.TransformationMode.SmoothTransformation)
+            self._brand_logo.setPixmap(pm)
+            self._brand_logo.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        else:
+            self._brand_logo.setText("NEXA")
+            self._brand_logo.setFont(get_font(16, weight=700))
+        self._brand_logo.setStyleSheet("QLabel#brandLogo { background: transparent; border: none; }")
+        card_lay.addWidget(self._brand_logo)
+        card_lay.addStretch()
+        self._brand_row_layout.addWidget(self._logo_card, stretch=1)
+
+        self._collapse_btn = self._make_icon_btn("panel-left", "Contraer menú", self._toggle_sidebar)
+        self._brand_row_layout.addWidget(self._collapse_btn)
+
+        self._hover_frames.append(self._collapse_btn)
+        return row
+
+    def _build_nav_scroll(self) -> QScrollArea:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -436,93 +588,151 @@ class Shell(QWidget):
         scroll.setStyleSheet(NEXAStyles.scroll_area())
         nav_widget = QWidget()
         nav_widget.setObjectName("sidebarNav")
+        nav_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         nav_widget.setStyleSheet(f"QWidget#sidebarNav {{ background: {Theme.sidebar_bg()}; }}")
-        layout = QVBoxLayout(nav_widget)
-        layout.setContentsMargins(12, 4, 12, 12)
+        self._nav_layout = layout = QVBoxLayout(nav_widget)
+        layout.setContentsMargins(12, 6, 12, 16)
         layout.setSpacing(2)
 
-        # --- PRINCIPAL ---
-        self._add_section_label(layout, "PRINCIPAL")
-        self._add_nav_item(layout, "home", "Inicio", P_DASHBOARD)
-        self._add_nav_item(layout, "grid", "Catálogo", P_CATALOG)
-        self._add_nav_item(layout, "search", "Búsqueda", P_SEARCH)
+        self._section_labels: list[QLabel] = []
 
-        # --- GESTIÓN ---
-        self._add_section_label(layout, "GESTIÓN")
-        self._add_nav_item(layout, "apps", "Aplicaciones", P_APP)
-        self._add_nav_item(layout, "file", "Propuestas", P_PROPOSALS)
-        self._add_nav_item(layout, "list", "Solicitudes", P_REQUESTS)
-        self._add_nav_item(layout, "wrench", "Incidencias", P_ISSUES)
-
-        # --- CONOCIMIENTO ---
-        self._add_section_label(layout, "CONOCIMIENTO")
-        self._add_nav_item(layout, "book", "Conocimiento", P_KNOWLEDGE)
-        self._add_nav_item(layout, "activity", "Comunidad", P_COMMUNITY)
-
-        # --- ANALÍTICA ---
-        self._add_section_label(layout, "ANALÍTICA")
-        self._add_nav_item(layout, "chart", "Reportes", P_REPORTS)
-        self._add_nav_item(layout, "shield", "Auditoría", P_AUDIT)
+        groups = [
+            ("PRINCIPAL", [
+                ("house",          "Inicio",            P_DASHBOARD),
+                ("layout-grid",    "Catálogo",          P_CATALOG),
+                ("search",         "Búsqueda",          P_SEARCH),
+            ]),
+            ("GESTIÓN", [
+                ("app-window",     "Aplicaciones",      P_APP),
+                ("lightbulb",      "Propuestas",        P_PROPOSALS),
+                ("clipboard-list", "Solicitudes",       P_REQUESTS),
+                ("triangle-alert", "Incidencias",       P_ISSUES),
+            ]),
+            ("CONOCIMIENTO", [
+                ("book-open",      "Conocimiento",      P_KNOWLEDGE),
+                ("users-round",    "Comunidad",         P_COMMUNITY),
+            ]),
+            ("ANALÍTICA", [
+                ("chart-column",   "Reportes",          P_REPORTS),
+                ("shield-check",   "Auditoría",         P_AUDIT),
+            ]),
+        ]
+        for title, items in groups:
+            self._add_section_label(layout, title)
+            for icon, text, page_key in items:
+                self._add_nav_item(layout, icon, text, page_key)
 
         # --- ADMINISTRACIÓN (admin only) ---
         self._admin_section = self._build_admin_section(layout)
 
         layout.addStretch()
         scroll.setWidget(nav_widget)
-        outer.addWidget(scroll, stretch=1)
-
-        # ---- Acciones inferiores + Perfil ----
-        outer.addWidget(self._build_bottom_panel())
-
-        return sidebar
+        return scroll
 
     def _build_admin_section(self, parent_layout: QVBoxLayout) -> QWidget | None:
         section = QWidget()
         section_layout = QVBoxLayout(section)
         section_layout.setContentsMargins(0, 6, 0, 0)
         section_layout.setSpacing(2)
-        self._add_section_label_widget(section_layout, "ADMINISTRACIÓN")
-        self._add_nav_item(section_layout, "users", "Gestión de Usuarios", P_USERS)
+        self._add_section_label(section_layout, "ADMINISTRACIÓN")
+        self._add_nav_item(section_layout, "user-cog", "Gestión de Usuarios", P_USERS)
         parent_layout.addWidget(section)
         section.setVisible(self._is_admin)
         return section
 
-    def _add_section_label(self, layout: QVBoxLayout, text: str) -> None:
+    def _add_section_label(self, layout: QVBoxLayout, text: str) -> QLabel:
         lbl = QLabel(text)
-        lbl.setFont(get_font(10, weight=700))
+        lbl.setObjectName("sidebarSectionLabel")
+        lbl.setFont(get_font(10, weight=600))
         lbl.setStyleSheet(NEXAStyles.sidebar_section_label())
         layout.addWidget(lbl)
+        self._section_labels.append(lbl)
+        return lbl
 
-    def _add_section_label_widget(self, layout: QVBoxLayout, text: str) -> None:
-        lbl = QLabel(text)
-        lbl.setFont(get_font(10, weight=700))
-        lbl.setStyleSheet(NEXAStyles.sidebar_section_label())
-        layout.addWidget(lbl)
-
-    def _add_nav_item(self, layout: QVBoxLayout, icon: str, text: str, page_key: str) -> None:
+    def _add_nav_item(self, layout: QVBoxLayout, icon: str, text: str, page_key: str) -> _NavItem:
         item = _NavItem(icon, text, page_key, self._navigate_to)
         item.set_active(page_key == P_DASHBOARD)
         layout.addWidget(item)
         self._nav_buttons[page_key] = item
+        return item
 
+    # ------------------------------------------------------------------
+    def _make_icon_btn(self, icon_name: str, tooltip: str, handler) -> QFrame:
+        fr = QFrame()
+        fr.setFixedSize(30, 30)
+        fr.setCursor(Qt.CursorShape.PointingHandCursor)
+        fr.setToolTip(tooltip)
+        ico = Icon(icon_name, 16)
+        ico.set_color(Theme.sidebar_text_secondary())
+        lay = QHBoxLayout(fr)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(ico, 0, Qt.AlignmentFlag.AlignCenter)
+        fr.icon = ico
+        fr.mousePressEvent = lambda e: handler()
+        self._sidebar_icons.append(ico)
+        self._hover_frames.append(fr)
+        return fr
+
+    def _build_theme_toggle(self) -> QWidget:
+        self._pill_icons: dict[str, Icon] = {}
+        self._theme_pill = QFrame()
+        self._theme_pill.setObjectName("themePill")
+        self._theme_pill.setFixedHeight(32)
+        self._theme_pill.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._theme_pill.setToolTip("Cambiar tema claro/oscuro")
+        lay = QHBoxLayout(self._theme_pill)
+        lay.setContentsMargins(3, 3, 3, 3)
+        lay.setSpacing(2)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self._pill_sun = self._make_pill_btn("sun", "Modo claro", lambda: self._set_theme("light"))
+        self._pill_moon = self._make_pill_btn("moon", "Modo oscuro", lambda: self._set_theme("dark"))
+        lay.addWidget(self._pill_sun)
+        lay.addWidget(self._pill_moon)
+        self._hover_frames.append(self._theme_pill)
+        return self._theme_pill
+
+    def _make_pill_btn(self, icon_name: str, tooltip: str, handler) -> QFrame:
+        fr = QFrame()
+        fr.setFixedSize(26, 26)
+        fr.setCursor(Qt.CursorShape.PointingHandCursor)
+        fr.setToolTip(tooltip)
+        ico = Icon(icon_name, 15)
+        lay = QHBoxLayout(fr)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(ico, 0, Qt.AlignmentFlag.AlignCenter)
+        fr.mousePressEvent = lambda e: handler()
+        self._pill_icons[icon_name] = ico
+        return fr
+
+    # ------------------------------------------------------------------
     def _build_bottom_panel(self) -> QWidget:
         panel = QWidget()
         panel.setObjectName("sidebarUser")
         panel.setStyleSheet(NEXAStyles.sidebar_user_box())
-        v = QVBoxLayout(panel)
+        self._sidebar_bottom = panel
+        self._v_col = v = QVBoxLayout(panel)
         v.setContentsMargins(12, 10, 12, 12)
         v.setSpacing(2)
 
-        # Acciones: notificaciones / apariencia
-        actions = QHBoxLayout()
-        actions.setSpacing(4)
+        # Fila acciones: apariencia + notificaciones
+        self._actions_row = QWidget()
+        actions = QHBoxLayout(self._actions_row)
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(6)
 
-        notif_btn = Icon("bell", 17)
-        notif_btn.set_color(Theme.text_secondary())
-        notif_frame = QFrame()
-        nf = QHBoxLayout(notif_frame)
-        nf.setContentsMargins(8, 6, 8, 6)
-        nf.addWidget(notif_btn)
+        actions.addWidget(self._build_theme_toggle())
+
+        self._notif_box = QFrame()
+        self._notif_box.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._notif_box.setToolTip("Notificaciones")
+        nf = QHBoxLayout(self._notif_box)
+        nf.setContentsMargins(7, 5, 7, 5)
+        nf.setSpacing(4)
+        bell = Icon("bell", 16)
+        bell.set_color(Theme.sidebar_text_secondary())
+        self._sidebar_icons.append(bell)
+        nf.addWidget(bell)
         self._notif_badge = QLabel("")
         self._notif_badge.setFont(get_font(9, weight=700))
         self._notif_badge.setStyleSheet(
@@ -531,25 +741,12 @@ class Shell(QWidget):
         self._notif_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._notif_badge.hide()
         nf.addWidget(self._notif_badge)
-        notif_frame.setCursor(Qt.CursorShape.PointingHandCursor)
-        notif_frame.setStyleSheet(f"QFrame {{ border: none; background: transparent; border-radius: 6px; }}")
-        notif_frame.mousePressEvent = lambda e: self._navigate_to(P_NOTIFICATIONS)
-        actions.addWidget(notif_frame)
-
-        # Theme toggle (preferencias de apariencia)
-        self._theme_icon = Icon("sun" if is_dark() else "moon", 17)
-        self._theme_icon.set_color(Theme.text_secondary())
-        self._theme_frame = QFrame()
-        tf = QHBoxLayout(self._theme_frame)
-        tf.setContentsMargins(8, 6, 8, 6)
-        tf.addWidget(self._theme_icon)
-        self._theme_frame.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._theme_frame.setStyleSheet(f"QFrame {{ border: none; background: transparent; border-radius: 6px; }}")
-        self._theme_frame.mousePressEvent = lambda e: self._toggle_theme()
-        actions.addWidget(self._theme_frame)
+        self._notif_box.mousePressEvent = lambda e: self._navigate_to(P_NOTIFICATIONS)
+        self._hover_frames.append(self._notif_box)
+        actions.addWidget(self._notif_box)
 
         actions.addStretch()
-        v.addLayout(actions)
+        v.addWidget(self._actions_row)
 
         # Lista de acciones texto (Preferencias / Apariencia)
         self._prefs_row = self._make_text_action("settings", "Preferencias")
@@ -557,9 +754,8 @@ class Shell(QWidget):
         v.addWidget(self._prefs_row)
 
         # ---- Perfil ----
-        profile = self._make_profile_row()
         v.addSpacing(6)
-        v.addWidget(profile)
+        v.addWidget(self._make_profile_row())
 
         return panel
 
@@ -571,24 +767,27 @@ class Shell(QWidget):
         lay.setContentsMargins(6, 4, 6, 4)
         lay.setSpacing(8)
         ico = Icon(icon, 15)
-        ico.set_color(Theme.text_secondary())
-        lbl = QLabel(text)
-        lbl.setFont(get_font(11))
-        lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        ico.set_color(Theme.sidebar_text_secondary())
+        self._sidebar_icons.append(ico)
+        self._prefs_label = QLabel(text)
+        self._prefs_label.setObjectName("prefsLabel")
+        self._prefs_label.setFont(get_font(11))
+        self._prefs_label.setStyleSheet(
+            f"QLabel#prefsLabel {{ color: {Theme.sidebar_text_secondary()};"
+            " background: transparent; border: none; }}")
         lay.addWidget(ico)
-        lay.addWidget(lbl)
+        lay.addWidget(self._prefs_label)
         lay.addStretch()
+        self._hover_frames.append(row)
         return row
 
     def _make_profile_row(self) -> QWidget:
         row = QFrame()
         row.setObjectName("sidebarUserCard")
-        row.setStyleSheet(
-            f"QFrame#sidebarUserCard {{ background-color: {Theme.hover_bg()}; "
-            f"border-radius: 10px; }}")
-        lay = QHBoxLayout(row)
-        lay.setContentsMargins(12, 10, 12, 10)
-        lay.setSpacing(10)
+        self._profile_card = row
+        self._profile_layout = QHBoxLayout(row)
+        self._profile_layout.setContentsMargins(12, 10, 12, 10)
+        self._profile_layout.setSpacing(10)
 
         avatar = QFrame()
         avatar.setFixedSize(34, 34)
@@ -601,26 +800,84 @@ class Shell(QWidget):
         initial.setStyleSheet("color: #FFFFFF; background: transparent;")
         initial.setAlignment(Qt.AlignmentFlag.AlignCenter)
         av_l.addWidget(initial)
-        lay.addWidget(avatar)
+        self._profile_layout.addWidget(avatar)
 
         col = QVBoxLayout()
         col.setSpacing(0)
-        name = QLabel(self._svc.user_name or "")
-        name.setFont(get_font(12, weight=600))
-        name.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
-        role = QLabel("Administrador" if self._is_admin else "Colaborador")
-        role.setFont(get_font(10))
-        role.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
-        col.addWidget(name)
-        col.addWidget(role)
-        lay.addLayout(col, stretch=1)
+        self._profile_name = QLabel(self._svc.user_name or "")
+        self._profile_name.setObjectName("profileName")
+        self._profile_name.setFont(get_font(12, weight=600))
+        self._profile_name.setStyleSheet(
+            f"QLabel#profileName {{ color: {Theme.sidebar_text()}; background: transparent; border: none; }}")
+        self._profile_role = QLabel("Administrador" if self._is_admin else "Colaborador")
+        self._profile_role.setObjectName("profileRole")
+        self._profile_role.setFont(get_font(10))
+        self._profile_role.setStyleSheet(
+            f"QLabel#profileRole {{ color: {Theme.sidebar_text_secondary()}; background: transparent; border: none; }}")
+        col.addWidget(self._profile_name)
+        col.addWidget(self._profile_role)
+        self._profile_layout.addLayout(col, stretch=1)
 
-        logout_icon = Icon("logout", 16)
-        logout_icon.set_color(Theme.text_secondary())
-        lay.addWidget(logout_icon)
+        self._logout_icon = Icon("logout", 16)
+        self._logout_icon.set_color(Theme.sidebar_text_secondary())
+        self._sidebar_icons.append(self._logout_icon)
+        self._profile_layout.addWidget(self._logout_icon)
+
         row.setCursor(Qt.CursorShape.PointingHandCursor)
         row.mousePressEvent = lambda e: self._on_logout()
         return row
+
+    # ------------------------------------------------------------------
+    # Sidebar: colapso / expansión responsive
+    # ------------------------------------------------------------------
+    def _toggle_sidebar(self) -> None:
+        self._sidebar_collapsed = not self._sidebar_collapsed
+        self._apply_collapsed_state(self._sidebar_collapsed)
+        target = (NEXAStyles.SIDEBAR_COLLAPSED_WIDTH if self._sidebar_collapsed
+                  else NEXAStyles.SIDEBAR_WIDTH)
+        self._animate_sidebar_width(target)
+        self._collapse_btn.setToolTip("Expandir menú" if self._sidebar_collapsed else "Contraer menú")
+
+    def _animate_sidebar_width(self, target: int) -> None:
+        anim = QVariantAnimation(self)
+        anim.setDuration(220)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        anim.setStartValue(self._sidebar.width())
+        anim.setEndValue(target)
+        anim.valueChanged.connect(lambda v: self._sidebar.setFixedWidth(int(v)))
+        anim.finished.connect(lambda: self._sidebar.setFixedWidth(target))
+        anim.start()
+
+    def _apply_collapsed_state(self, collapsed: bool) -> None:
+        for item in self._nav_buttons.values():
+            item.set_collapsed(collapsed)
+        for lbl in self._section_labels:
+            lbl.setVisible(not collapsed)
+
+        if hasattr(self, "_logo_card"):
+            self._logo_card.setVisible(not collapsed)
+        if collapsed:
+            # contenido útil del sidebar colapsado = 72px
+            self._brand_row_layout.setContentsMargins(21, 12, 21, 12)
+            self._nav_layout.setContentsMargins(4, 6, 4, 16)
+            self._actions_row.setVisible(False)
+            self._prefs_row.setVisible(False)
+            self._profile_name.setVisible(False)
+            self._profile_role.setVisible(False)
+            self._logout_icon.setVisible(False)
+            self._profile_layout.setContentsMargins(15, 6, 15, 6)
+            self._v_col.setContentsMargins(4, 8, 4, 12)
+        else:
+            self._brand_row_layout.setContentsMargins(12, 12, 10, 12)
+            self._nav_layout.setContentsMargins(12, 6, 12, 16)
+            self._actions_row.setVisible(True)
+            self._prefs_row.setVisible(True)
+            self._profile_name.setVisible(True)
+            self._profile_role.setVisible(True)
+            self._logout_icon.setVisible(True)
+            self._profile_layout.setContentsMargins(12, 10, 12, 10)
+            self._v_col.setContentsMargins(12, 10, 12, 12)
+        self._refresh_sidebar_static()
 
     # ------------------------------------------------------------------
     # Header
@@ -988,25 +1245,61 @@ class Shell(QWidget):
     # ------------------------------------------------------------------
     # Theme
     # ------------------------------------------------------------------
-    def _toggle_theme(self) -> None:
-        self._theme_mode = "light" if self._theme_mode == "dark" else "dark"
-        set_theme(self._theme_mode)
-        save_theme(self._theme_mode)
-        self._refresh_theme_button()
-        
-        # Actualizar la paleta global para que los controles cambien
-        from hub.ui.common.design import setup_app_palette, Theme, NEXAStyles
+    def _set_theme(self, mode: str) -> None:
+        if mode not in ("light", "dark") or mode == self._theme_mode:
+            return
+        self._theme_mode = mode
+        set_theme(mode)
+        save_theme(mode)
+        from hub.ui.common.design import setup_app_palette
         from PySide6.QtWidgets import QApplication
         app = QApplication.instance()
         if app:
             setup_app_palette(app)
-            
         self.apply_theme()
 
+    def _toggle_theme(self) -> None:
+        self._set_theme("light" if self._theme_mode == "dark" else "dark")
+
     def _refresh_theme_button(self) -> None:
-        if hasattr(self, "_theme_icon"):
-            self._theme_icon.set_icon("sun" if self._theme_mode == "dark" else "moon")
-            self._theme_icon.set_color(Theme.text_secondary())
+        if not hasattr(self, "_theme_pill"):
+            return
+        active = "sun" if self._theme_mode == "light" else "moon"
+        for name, ico in self._pill_icons.items():
+            ico.set_color("#FFFFFF" if name == active else Theme.sidebar_text_secondary())
+        for btn, name in ((self._pill_sun, "sun"), (self._pill_moon, "moon")):
+            if name == active:
+                btn.setStyleSheet(
+                    f"QFrame {{ background-color: {Theme.sidebar_active()}; "
+                    "border-radius: 6px; border: none; }}")
+            else:
+                btn.setStyleSheet("QFrame { background: transparent; border: none; border-radius: 6px; }")
+
+    def _refresh_sidebar_static(self) -> None:
+        if not hasattr(self, "_sidebar") or self._sidebar is None:
+            return
+        self._sidebar.setStyleSheet(NEXAStyles.sidebar())
+        nav = self._sidebar.findChild(QWidget, "sidebarNav")
+        if nav is not None:
+            nav.setStyleSheet(f"QWidget#sidebarNav {{ background: {Theme.sidebar_bg()}; }}")
+        if hasattr(self, "_logo_card"):
+            self._logo_card.setStyleSheet(NEXAStyles.logo_card())
+        if hasattr(self, "_profile_card"):
+            self._profile_card.setStyleSheet(NEXAStyles.sidebar_user_card())
+        for ico in getattr(self, "_sidebar_icons", []):
+            ico.set_color(Theme.sidebar_text_secondary())
+        if hasattr(self, "_prefs_label"):
+            self._prefs_label.setStyleSheet(
+                f"QLabel#prefsLabel {{ color: {Theme.sidebar_text_secondary()};"
+                " background: transparent; border: none; }}")
+        if hasattr(self, "_profile_name"):
+            self._profile_name.setStyleSheet(
+                f"QLabel#profileName {{ color: {Theme.sidebar_text()}; background: transparent; border: none; }}")
+        if hasattr(self, "_profile_role"):
+            self._profile_role.setStyleSheet(
+                f"QLabel#profileRole {{ color: {Theme.sidebar_text_secondary()};"
+                " background: transparent; border: none; }}")
+        self._refresh_theme_button()
 
     def apply_theme(self) -> None:
         if not self._pages:
@@ -1020,11 +1313,13 @@ class Shell(QWidget):
                 f"QLineEdit {{ border: none; background: transparent; color: {Theme.text()}; "
                 f"font-size: 12px; }}"
                 f"QLineEdit::placeholder {{ color: {Theme.text_muted()}; }}")
-        if hasattr(self, "_sidebar") and self._sidebar is not None:
-            self._sidebar.setStyleSheet(NEXAStyles.sidebar())
-        self._refresh_theme_button()
+        self._refresh_sidebar_static()
+        if hasattr(self, "_access_denied_label"):
+            self._access_denied_label.setStyleSheet(
+                f"color: {Theme.text_secondary()}; background: {Theme.bg()};")
         for item in self._nav_buttons.values():
             item.set_active(item._page_key == self._current_page)
+            item.refresh_theme()
         for key, page in self._pages.items():
             if hasattr(page, "refresh_style"):
                 page.refresh_style()

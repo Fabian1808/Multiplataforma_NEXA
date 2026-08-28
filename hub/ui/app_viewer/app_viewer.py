@@ -603,6 +603,26 @@ class AppViewer(QWidget):
         if self._launcher is None:
             QMessageBox.warning(self, "No disponible", "El lanzador de aplicaciones no está configurado.")
             return
+
+        if self._launcher.installed_path(desc) is None:
+            # No está instalada localmente: descargar en segundo plano sin congelar la UI.
+            self._pending_install = desc
+            try:
+                self._launcher.install_finished.disconnect(self._on_install_finished)
+            except (RuntimeError, TypeError):
+                pass
+            self._launcher.install_finished.connect(self._on_install_finished)
+            QMessageBox.information(
+                self, "Preparando aplicación",
+                f"'{desc.name}' no está instalada en este equipo.\n\n"
+                "Se intentará descargar ahora desde los recursos configurados.\n"
+                "Te avisaremos cuando esté lista.",
+            )
+            started = self._launcher.install_async(desc)
+            if not started:
+                QMessageBox.warning(self, "No se pudo iniciar", "La instalación no pudo iniciarse.")
+            return
+
         ok, msg = self._launcher.launch(desc)
         if ok:
             self._exec_count += 1
@@ -610,6 +630,32 @@ class AppViewer(QWidget):
             QMessageBox.information(self, "Abrir aplicación", msg)
         else:
             QMessageBox.warning(self, "No se pudo abrir", msg)
+
+    def _on_install_finished(self, plugin_id: str, ok: bool, msg: str) -> None:
+        pending = getattr(self, "_pending_install", None)
+        if pending is None or pending.id != plugin_id:
+            return
+        self._pending_install = None
+        try:
+            self._launcher.install_finished.disconnect(self._on_install_finished)
+        except (RuntimeError, TypeError):
+            pass
+        from PySide6.QtWidgets import QMessageBox
+        if ok:
+            ok2, msg2 = self._launcher.launch(pending)
+            if ok2:
+                self._exec_count += 1
+                self._kpi_count.set_value(str(self._exec_count))
+                QMessageBox.information(self, "Abrir aplicación", msg2)
+            else:
+                QMessageBox.warning(self, "No se pudo abrir", msg2)
+        else:
+            QMessageBox.warning(
+                self, "No se pudo abrir",
+                f"'{getattr(pending, 'name', plugin_id)}' no se pudo descargar.\n\n"
+                f"Detalle: {msg}\n\n"
+                "Verifica el acceso a los recursos compartidos o la conexión de red.",
+            )
 
     def _show_error(self, message: str) -> None:
         self._error_detail.setText(message)
@@ -628,17 +674,21 @@ class AppViewer(QWidget):
             self.favorite_toggled.emit(self._current_plugin.id, self._is_favorite)
 
     def _on_execute(self) -> None:
-        if self._current_plugin:
-            logger.info("Ejecutando plugin: %s", self._current_plugin.id)
-            self._execute_btn.setEnabled(False)
-            try:
-                factory = self._registry.get_factory(self._current_plugin.id)
-                if factory:
-                    widget = factory.create_widget(self._plugin_container)
-                    self._plugin_layout.addWidget(widget)
-                    self._exec_count += 1
-                    self._kpi_count.set_value(str(self._exec_count))
-            except Exception as e:
-                logger.exception("Error ejecutando plugin %s", self._current_plugin.id)
-                self._show_error(str(e))
-            self._execute_btn.setEnabled(True)
+        if not self._current_plugin:
+            return
+        if self._current_plugin.is_external:
+            self._launch_external(self._current_plugin)
+            return
+        logger.info("Ejecutando plugin: %s", self._current_plugin.id)
+        self._execute_btn.setEnabled(False)
+        try:
+            factory = self._registry.get_factory(self._current_plugin.id)
+            if factory:
+                widget = factory.create_widget(self._plugin_container)
+                self._plugin_layout.addWidget(widget)
+                self._exec_count += 1
+                self._kpi_count.set_value(str(self._exec_count))
+        except Exception as e:
+            logger.exception("Error ejecutando plugin %s", self._current_plugin.id)
+            self._show_error(str(e))
+        self._execute_btn.setEnabled(True)

@@ -6,9 +6,10 @@ import ctypes
 import logging
 import os
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication, QLabel, QMainWindow, QProgressBar,
     QSplashScreen, QStackedWidget, QVBoxLayout, QWidget,
@@ -28,6 +29,23 @@ logger = logging.getLogger(__name__)
 # Windows rechaza con ERROR_INVALID_NAME (123). Se usa nombre simple sin
 # namespace para máxima compatibilidad entre sesiones de usuario.
 MUTEX_NAME = "NEXA_Productivity_Hub_SingleInstance"
+
+_APP_ICON: QIcon | None = None
+_APP_ICON_READ = False
+
+
+def _app_icon() -> QIcon | None:
+    """Ícono de la aplicación (assets/logo_taskbar.png), cargo perezoso."""
+    global _APP_ICON, _APP_ICON_READ
+    if not _APP_ICON_READ:
+        _APP_ICON_READ = True
+        p = Path(__file__).resolve().parent / "assets" / "logo_taskbar.png"
+        if p.is_file():
+            try:
+                _APP_ICON = QIcon(str(p))
+            except Exception:
+                logger.exception("No se pudo cargar el ícono de la aplicación")
+    return _APP_ICON
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +200,11 @@ def create_app() -> tuple[QApplication, "MainWindow"]:
     app.setApplicationVersion(__version__)
     app.setStyle("Fusion")
 
+    # Ícono de ventana/taskbar (logo con transparencia)
+    icon = _app_icon()
+    if icon is not None:
+        app.setWindowIcon(icon)
+
     # Mostrar splash inmediatamente — el usuario ve algo en <0.3s
     splash = NexaSplash()
     splash.show()
@@ -224,11 +247,16 @@ def main() -> None:
             "'python -m hub.app' pendiente y reintenta."
         )
         ctypes.windll.kernel32.CloseHandle(mutex)
-        print(
-            "[NEXA] Ya hay una instancia abierta. "
-            "Si no la ves, cierra los procesos de NEXA pendientes y vuelve a intentar.",
-            file=sys.stderr,
-        )
+        try:
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                "NEXA Productivity Hub ya está abierto.\n\n"
+                "Si no ves la ventana, revisa la barra de tareas o el área de notificaciones.",
+                "NEXA Productivity Hub",
+                0x40,  # MB_ICONINFORMATION | MB_OK
+            )
+        except Exception:
+            pass
         sys.exit(0)
 
     try:
