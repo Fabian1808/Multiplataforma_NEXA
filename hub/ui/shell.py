@@ -15,8 +15,6 @@ from PySide6.QtWidgets import (
     QStackedWidget, QVBoxLayout, QWidget, QMessageBox, QScrollArea,
 )
 
-from hub.ui.common.design import Icon
-
 from hub import __app_name__, __version__
 from hub.core.service_container import ServiceContainer
 from hub.ui.auth.login_view import LoginView
@@ -36,8 +34,15 @@ from hub.ui.admin.feed_view import FeedView
 from hub.ui.app_viewer.app_viewer import AppViewer
 from hub.ui.catalog.catalog_view import CatalogView
 from hub.ui.common.design import (
-    Theme, NEXAStyles, ACCENT, get_font, make_shadow,
-    save_theme, set_theme, is_dark, get_theme,
+    Theme,
+    NEXAStyles,
+    ACCENT,
+    Icon,
+    get_font,
+    is_dark,
+    get_theme,
+    set_theme,
+    save_theme,
 )
 from hub.ui.dashboard.enhanced_dashboard_view import EnhancedDashboardView
 from hub.ui.reports.reports_center_view import ReportsCenterView
@@ -990,7 +995,7 @@ class Shell(QWidget):
         self._refresh_theme_button()
         
         # Actualizar la paleta global para que los controles cambien
-        from hub.ui.common.design import setup_app_palette
+        from hub.ui.common.design import setup_app_palette, Theme, NEXAStyles
         from PySide6.QtWidgets import QApplication
         app = QApplication.instance()
         if app:

@@ -14,7 +14,12 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    Theme, NEXAStyles, ACCENT, SUCCESS, WARNING, get_font,
+    Theme,
+    NEXAStyles,
+    ACCENT,
+    SUCCESS,
+    WARNING,
+    get_font
 )
 
 

@@ -19,7 +19,13 @@ from PySide6.QtWidgets import (
 from hub.core.health_check import HealthCheckService
 from hub.models.plugin import PluginDescriptor
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, get_font, Icon,
+    Theme,
+    NEXAStyles,
+    ACCENT,
+    Icon,
+    SUCCESS,
+    WARNING,
+    get_font
 )
 
 _PAGE_APPS = 0

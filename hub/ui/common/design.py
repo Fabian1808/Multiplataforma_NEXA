@@ -481,6 +481,7 @@ class NEXAStyles:
     CARD_RADIUS   = 12
     BUTTON_RADIUS = 8
     INPUT_RADIUS  = 8
+    PADDING_CARD  = 16
 
     @staticmethod
     def sidebar() -> str:

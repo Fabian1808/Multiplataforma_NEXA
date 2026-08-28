@@ -20,14 +20,14 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
+    Theme,
+    NEXAStyles,
     ACCENT,
     ERROR,
+    Icon,
     SUCCESS,
     WARNING,
-    NEXAStyles,
-    Theme,
-    get_font,
-    Icon,
+    get_font
 )
 
 _REPORT_STATUS = {

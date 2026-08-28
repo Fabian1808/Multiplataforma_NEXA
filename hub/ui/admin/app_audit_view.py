@@ -15,15 +15,15 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
+    Theme,
+    NEXAStyles,
     ACCENT,
     ERROR,
+    Icon,
     SUCCESS,
     WARNING,
-    NEXAStyles,
-    Theme,
     get_font,
-    make_shadow,
-    Icon,
+    make_shadow
 )
 
 STATE_COLORS = {

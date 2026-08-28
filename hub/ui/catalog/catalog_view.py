@@ -15,12 +15,12 @@ from PySide6.QtWidgets import (
 
 from hub.models.plugin import PluginCategory, PluginDescriptor
 from hub.ui.common.design import (
-    NEXAStyles,
     Theme,
+    NEXAStyles,
+    ACCENT,
     AppCard,
     Icon,
-    ACCENT,
-    get_font,
+    get_font
 )
 
 

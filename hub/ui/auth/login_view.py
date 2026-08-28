@@ -19,13 +19,13 @@ from PySide6.QtWidgets import (
 
 from hub.core.auth_service import AuthService
 from hub.ui.common.design import (
+    Theme,
+    NEXAStyles,
     ACCENT,
     ACCENT_BG,
     ERROR,
-    NEXAStyles,
-    Theme,
     Icon,
-    get_font,
+    get_font
 )
 
 _MAX_ATTEMPTS = 5

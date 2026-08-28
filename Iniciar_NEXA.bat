@@ -1,25 +1,13 @@
 @echo off
 setlocal
-title NEXA Productivity Hub
 cd /d "%~dp0"
 
-if exist ".venv\Scripts\python.exe" goto :run
-echo [ERROR] No se encontro el entorno virtual .venv
-echo Ejecute primero:  python -m venv .venv
-echo Luego:            .venv\Scripts\python.exe -m pip install -e .
-pause
+if exist ".venv\Scripts\pythonw.exe" goto :run
+
+:missing
+powershell -NoProfile -Command "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('No se encontro el entorno virtual .venv.`nEjecute Instalar_NEXA.bat para configurarlo.', 'NEXA Productivity Hub', 'OK', 'Warning')" >nul 2>&1
 exit /b 1
 
 :run
-echo Iniciando NEXA Productivity Hub...
-".venv\Scripts\python.exe" -m hub.app
-if errorlevel 1 goto :err
+start "" ".venv\Scripts\pythonw.exe" -m hub.app
 exit /b 0
-
-:err
-echo.
-echo La aplicacion termino con un error.
-echo Revise los logs en:  %APPDATA%\NEXA\ProductivityHub\logs
-pause
-exit /b 1
-

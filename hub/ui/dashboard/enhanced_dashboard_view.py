@@ -9,8 +9,15 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, ERROR, INFO,
-    get_font, Theme, Icon,
+    Theme,
+    NEXAStyles,
+    ACCENT,
+    ERROR,
+    INFO,
+    Icon,
+    SUCCESS,
+    WARNING,
+    get_font
 )
 
 

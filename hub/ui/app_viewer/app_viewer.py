@@ -22,14 +22,14 @@ from PySide6.QtWidgets import (
 from hub.core.plugin_registry import PluginRegistry
 from hub.models.plugin import PluginDescriptor
 from hub.ui.common.design import (
-    NEXAStyles,
     Theme,
+    NEXAStyles,
     ACCENT,
     Icon,
-    StatusBadge,
     KPIWidget,
-    get_font,
-    is_dark,
+    PLUGIN_STATUS_BADGES,
+    StatusBadge,
+    get_font
 )
 
 logger = logging.getLogger(__name__)
@@ -48,13 +48,32 @@ class AppViewer(QWidget):
         self._current_plugin: PluginDescriptor | None = None
         self._is_favorite = False
         self._exec_count = 0
+        # Layout raíz persistente: se crea UNA VEZ. El contenido vive en un
+        # contenedor (self._body_widget) que se intercambia al refrescar el tema,
+        # evitando el error "QLayout ... already has a layout".
+        self._root_layout = QVBoxLayout(self)
+        self._root_layout.setContentsMargins(0, 0, 0, 0)
+        self._root_layout.setSpacing(0)
+        self._body_widget: QWidget | None = None
+        self._content_stack = QStackedWidget()
+        self._content_stack_built = False
         self._setup_ui()
 
     # ------------------------------------------------------------------
     def _setup_ui(self) -> None:
         from PySide6.QtWidgets import QScrollArea
 
-        outer = QVBoxLayout(self)
+        if self._body_widget is not None:
+            for i in range(self._root_layout.count()):
+                item = self._root_layout.itemAt(i)
+                if item.widget() is self._body_widget:
+                    self._root_layout.takeAt(i)
+                    item.widget().deleteLater()
+                    break
+            self._body_widget = None
+
+        container = QWidget()
+        outer = QVBoxLayout(container)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
@@ -97,10 +116,14 @@ class AppViewer(QWidget):
         scroll.setWidget(body)
         outer.addWidget(scroll)
 
-        self._content_stack = QStackedWidget()
-        # (mantenemos la pila interna para error / estado)
-        self._build_content_stack()
+        self._root_layout.addWidget(container)
+        self._body_widget = container
+
+        # Pila interna para error / estado (persistente entre refrescos)
         self._content_stack.hide()
+        if not self._content_stack_built:
+            self._build_content_stack()
+            self._content_stack_built = True
 
     # ------------------------------------------------------------------
     def _build_top_bar(self) -> QHBoxLayout:
@@ -397,14 +420,11 @@ class AppViewer(QWidget):
     # ------------------------------------------------------------------
     def refresh_style(self) -> None:
         """Reconstruye la página con el tema activo (claro/oscuro)."""
-        # Reconstruye el body con los colores actuales de Theme.
-        while self.layout() and self.layout().count():
-            item = self.layout().takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        current_plugin_id = self._current_plugin.id if self._current_plugin else None
+        self._current_plugin = None
         self._setup_ui()
-        if self._current_plugin:
-            self.load_plugin(self._current_plugin.id)
+        if current_plugin_id:
+            self.load_plugin(current_plugin_id)
 
     def load_plugin(self, plugin_id: str) -> None:
         desc = self._registry.get(plugin_id)
@@ -422,7 +442,7 @@ class AppViewer(QWidget):
         self._kpi_version.set_value(desc.version)
         self._kpi_last.set_value("Ayer" if self._exec_count > 0 else "N/A")
 
-        from hub.ui.common.design import PLUGIN_STATUS_BADGES
+        from hub.ui.common.design import PLUGIN_STATUS_BADGES, Theme, NEXAStyles
         label, color = PLUGIN_STATUS_BADGES.get(desc.status.value, (desc.status.value, Theme.text_muted()))
         self._status_badge.setText(label)
         self._status_badge.setStyleSheet(NEXAStyles.badge(label, color))

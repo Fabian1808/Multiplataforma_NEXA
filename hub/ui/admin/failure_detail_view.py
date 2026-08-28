@@ -18,13 +18,13 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
+    Theme,
+    NEXAStyles,
     ACCENT,
     ERROR,
     SUCCESS,
     WARNING,
-    NEXAStyles,
-    Theme,
-    get_font,
+    get_font
 )
 
 _SEVERITY_COLORS = {

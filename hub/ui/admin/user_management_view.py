@@ -16,7 +16,15 @@ from PySide6.QtWidgets import (
 from hub.core.auth_service import AuthService
 from hub.core.audit_service import AuditService
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, ERROR, INFO, get_font, Icon, Theme,
+    Theme,
+    NEXAStyles,
+    ACCENT,
+    ERROR,
+    INFO,
+    Icon,
+    SUCCESS,
+    WARNING,
+    get_font
 )
 
 logger = logging.getLogger(__name__)

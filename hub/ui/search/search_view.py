@@ -15,8 +15,9 @@ from PySide6.QtWidgets import (
 
 from hub.models.plugin import PluginDescriptor
 from hub.ui.common.design import (
+    Theme,
     AppCard,
-    get_font,
+    get_font
 )
 
 

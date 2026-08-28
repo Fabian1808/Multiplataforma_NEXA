@@ -13,12 +13,13 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
+    Theme,
     NEXAStyles,
-    AppCard,
     ACCENT,
-    SURFACE_VARIANT,
-    get_font,
+    AppCard,
     Icon,
+    SURFACE_VARIANT,
+    get_font
 )
 
 
