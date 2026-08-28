@@ -16,11 +16,7 @@ from hub.ui.common.design import (
     NEXAStyles,
     AppCard,
     ACCENT,
-    SURFACE,
     SURFACE_VARIANT,
-    TEXT_PRIMARY,
-    TEXT_SECONDARY,
-    TEXT_MUTED,
     get_font,
     Icon,
 )
@@ -43,12 +39,12 @@ class DashboardView(QWidget):
 
         greeting = QLabel(f"Buenos días, {self._user_name}")
         greeting.setFont(get_font(22, bold=True))
-        greeting.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        greeting.setStyleSheet(f"color: {Theme.text()};")
         main_layout.addWidget(greeting)
 
         subtitle = QLabel("¿Qué necesitas hacer?")
         subtitle.setFont(get_font(14))
-        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
         main_layout.addWidget(subtitle)
 
         main_layout.addSpacing(8)
@@ -56,7 +52,7 @@ class DashboardView(QWidget):
         search_frame = QFrame()
         search_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: {SURFACE};
+                background-color: {Theme.surface()};
                 border: 2px solid #E0E0E0;
                 border-radius: 8px;
                 padding: 4px;
@@ -68,7 +64,7 @@ class DashboardView(QWidget):
         search_layout = QHBoxLayout(search_frame)
         search_layout.setContentsMargins(12, 4, 12, 4)
         search_icon = Icon("search", 16)
-        search_icon.set_color(TEXT_MUTED)
+        search_icon.set_color(Theme.text_muted())
         search_layout.addWidget(search_icon)
 
         from PySide6.QtWidgets import QLineEdit
@@ -112,7 +108,7 @@ class DashboardView(QWidget):
 
         label = QLabel(title)
         label.setFont(get_font(15, bold=True))
-        label.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        label.setStyleSheet(f"color: {Theme.text()};")
         layout.addWidget(label)
 
         cards_layout = QHBoxLayout()
@@ -131,7 +127,7 @@ class DashboardView(QWidget):
         container = QFrame()
         container.setStyleSheet(f"""
             QFrame {{
-                background-color: {SURFACE};
+                background-color: {Theme.surface()};
                 border: 1px dashed #E0E0E0;
                 border-radius: 8px;
                 padding: 20px;
@@ -142,12 +138,12 @@ class DashboardView(QWidget):
 
         title = QLabel("¿Tienes una tarea repetitiva?")
         title.setFont(get_font(14, bold=True))
-        title.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        title.setStyleSheet(f"color: {Theme.text()};")
         layout.addWidget(title)
 
         subtitle = QLabel("Propón una automatización y te ayudamos a construirla")
         subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
         layout.addWidget(subtitle)
 
         return container
@@ -163,7 +159,7 @@ class DashboardView(QWidget):
         if not cards_data:
             no_favs = QLabel("Marca herramientas como favoritas para verlas aquí")
             no_favs.setFont(get_font(11))
-            no_favs.setStyleSheet(f"color: {TEXT_MUTED};")
+            no_favs.setStyleSheet(f"color: {Theme.text_muted()};")
             layout.addWidget(no_favs)
             return
         for data in cards_data:
@@ -185,7 +181,7 @@ class DashboardView(QWidget):
         if not cards_data:
             no_recent = QLabel("Tus herramientas utilizadas recientemente aparecerán aquí")
             no_recent.setFont(get_font(11))
-            no_recent.setStyleSheet(f"color: {TEXT_MUTED};")
+            no_recent.setStyleSheet(f"color: {Theme.text_muted()};")
             layout.addWidget(no_recent)
             return
         for data in cards_data:

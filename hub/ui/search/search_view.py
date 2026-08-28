@@ -16,10 +16,6 @@ from PySide6.QtWidgets import (
 from hub.models.plugin import PluginDescriptor
 from hub.ui.common.design import (
     AppCard,
-    SURFACE,
-    TEXT_PRIMARY,
-    TEXT_SECONDARY,
-    TEXT_MUTED,
     get_font,
 )
 
@@ -40,12 +36,12 @@ class SearchView(QWidget):
 
         header = QLabel("Resultados de Búsqueda")
         header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         main_layout.addWidget(header)
 
         self._query_label = QLabel("")
         self._query_label.setFont(get_font(13))
-        self._query_label.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        self._query_label.setStyleSheet(f"color: {Theme.text_secondary()};")
         main_layout.addWidget(self._query_label)
 
         scroll = QScrollArea()
@@ -69,7 +65,7 @@ class SearchView(QWidget):
         if not results:
             empty = QLabel("No se encontraron resultados. Intenta con otros términos.")
             empty.setFont(get_font(13))
-            empty.setStyleSheet(f"color: {TEXT_MUTED}; padding: 40px;")
+            empty.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._results_layout.addWidget(empty)
             return
@@ -91,7 +87,7 @@ class SearchView(QWidget):
 
             score_label = QLabel(f"{score:.0%}")
             score_label.setFont(get_font(11))
-            score_label.setStyleSheet(f"color: {TEXT_MUTED};")
+            score_label.setStyleSheet(f"color: {Theme.text_muted()};")
             score_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             score_label.setFixedWidth(50)
             row.addWidget(score_label)

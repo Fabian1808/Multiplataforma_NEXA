@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, get_font,
 )
 
 
@@ -36,12 +36,12 @@ class KnowledgeBaseView(QWidget):
 
         header = QLabel("Base de Conocimiento")
         header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         main_layout.addWidget(header)
 
         subtitle = QLabel("Soluciones, guías y mejores prácticas para tareas comunes.")
         subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
         main_layout.addWidget(subtitle)
 
         search_row = QHBoxLayout()
@@ -106,7 +106,7 @@ class KnowledgeBaseView(QWidget):
         if not articles:
             empty = QLabel("No hay artículos aún. Sé el primero en contribuir.")
             empty.setFont(get_font(13))
-            empty.setStyleSheet(f"color: {TEXT_MUTED}; padding: 40px;")
+            empty.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._articles_layout.addWidget(empty)
             return
@@ -130,7 +130,7 @@ class KnowledgeBaseView(QWidget):
             title_row = QHBoxLayout()
             title_lbl = QLabel(title)
             title_lbl.setFont(get_font(13, bold=True))
-            title_lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            title_lbl.setStyleSheet(f"color: {Theme.text()};")
             title_row.addWidget(title_lbl, stretch=1)
             if category:
                 cat_badge = QLabel(category)
@@ -142,14 +142,14 @@ class KnowledgeBaseView(QWidget):
             preview_text = content[:150] + "..." if len(content) > 150 else content
             preview = QLabel(preview_text)
             preview.setFont(get_font(11))
-            preview.setStyleSheet(f"color: {TEXT_SECONDARY};")
+            preview.setStyleSheet(f"color: {Theme.text_secondary()};")
             preview.setWordWrap(True)
             card_layout.addWidget(preview)
 
             meta_row = QHBoxLayout()
             author_lbl = QLabel(f"Por {author}" if author else "")
             author_lbl.setFont(get_font(10))
-            author_lbl.setStyleSheet(f"color: {TEXT_MUTED};")
+            author_lbl.setStyleSheet(f"color: {Theme.text_muted()};")
             meta_row.addWidget(author_lbl)
             meta_row.addStretch()
             card_layout.addLayout(meta_row)

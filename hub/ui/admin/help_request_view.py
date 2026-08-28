@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
+    NEXAStyles, ACCENT, get_font, Icon,
 )
 
 
@@ -44,13 +44,13 @@ class HelpRequestView(QWidget):
         header_row.addWidget(header_icon)
         header = QLabel("Tengo un problema")
         header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         header_row.addWidget(header, stretch=1)
         layout.addLayout(header_row)
 
         subtitle = QLabel("Cuéntanos qué necesitas hacer y te ayudaremos a encontrar una solución.")
         subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
@@ -70,7 +70,7 @@ class HelpRequestView(QWidget):
         for key, label_text, _ in field_defs:
             lbl = QLabel(label_text)
             lbl.setFont(get_font(12, bold=True))
-            lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            lbl.setStyleSheet(f"color: {Theme.text()};")
             form_layout.addWidget(lbl)
             inp = QLineEdit()
             inp.setFont(get_font(12))
@@ -81,7 +81,7 @@ class HelpRequestView(QWidget):
 
         lbl = QLabel("Describe el proceso")
         lbl.setFont(get_font(12, bold=True))
-        lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        lbl.setStyleSheet(f"color: {Theme.text()};")
         form_layout.addWidget(lbl)
         self._description = QTextEdit()
         self._description.setFont(get_font(12))
@@ -108,7 +108,7 @@ class HelpRequestView(QWidget):
         self._result_label = QLabel("")
         self._result_label.setFont(get_font(12))
         self._result_label.setWordWrap(True)
-        self._result_label.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        self._result_label.setStyleSheet(f"color: {Theme.text()};")
         result_layout.addWidget(self._result_label)
         layout.addWidget(self._result_frame)
 

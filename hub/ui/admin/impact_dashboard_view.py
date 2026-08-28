@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
+    NEXAStyles, ACCENT, SUCCESS, WARNING, get_font, Icon,
 )
 
 
@@ -40,7 +40,7 @@ class ImpactDashboardView(QWidget):
         header_row.addWidget(header_icon)
         header = QLabel("Dashboard de Impacto")
         header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         header_row.addWidget(header, stretch=1)
         layout.addLayout(header_row)
 
@@ -76,7 +76,7 @@ class ImpactDashboardView(QWidget):
         impact_layout.addWidget(self._impact_value)
         self._impact_detail = QLabel("Horas ahorradas × costo hora-hombre")
         self._impact_detail.setFont(get_font(10))
-        self._impact_detail.setStyleSheet(f"color: {TEXT_MUTED};")
+        self._impact_detail.setStyleSheet(f"color: {Theme.text_muted()};")
         impact_layout.addWidget(self._impact_detail)
         sections_grid.addWidget(impact_frame, 0, 0)
 
@@ -139,7 +139,7 @@ class ImpactDashboardView(QWidget):
 
         title_lbl = QLabel(title)
         title_lbl.setFont(get_font(11))
-        title_lbl.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        title_lbl.setStyleSheet(f"color: {Theme.text_secondary()};")
         layout.addWidget(title_lbl)
 
         value_lbl = QLabel(value)
@@ -171,11 +171,11 @@ class ImpactDashboardView(QWidget):
             row = QHBoxLayout()
             name_lbl = QLabel(name)
             name_lbl.setFont(get_font(11))
-            name_lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            name_lbl.setStyleSheet(f"color: {Theme.text()};")
             row.addWidget(name_lbl, stretch=1)
             count_lbl = QLabel(f"{count} ejecuciones")
             count_lbl.setFont(get_font(11))
-            count_lbl.setStyleSheet(f"color: {TEXT_MUTED};")
+            count_lbl.setStyleSheet(f"color: {Theme.text_muted()};")
             row.addWidget(count_lbl)
             container = QWidget()
             container.setLayout(row)

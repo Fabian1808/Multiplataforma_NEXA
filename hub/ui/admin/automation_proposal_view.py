@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from hub.models.request import AutomationScore
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
+    NEXAStyles, ACCENT, SUCCESS, WARNING, get_font, Icon,
 )
 
 
@@ -46,13 +46,13 @@ class AutomationProposalView(QWidget):
         header_row.addWidget(header_icon)
         header = QLabel("Proponer Automatización")
         header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         header_row.addWidget(header, stretch=1)
         layout.addLayout(header_row)
 
         subtitle = QLabel("Describe una tarea repetitiva y te ayudaremos a convertirla en una automatización.")
         subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
         layout.addWidget(subtitle)
 
         form = QFrame()
@@ -71,7 +71,7 @@ class AutomationProposalView(QWidget):
         for key, label_text, placeholder in field_defs:
             lbl = QLabel(label_text)
             lbl.setFont(get_font(12, bold=True))
-            lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            lbl.setStyleSheet(f"color: {Theme.text()};")
             form_layout.addWidget(lbl)
             inp = QLineEdit()
             inp.setFont(get_font(12))
@@ -82,7 +82,7 @@ class AutomationProposalView(QWidget):
 
         lbl = QLabel("Pasos del proceso")
         lbl.setFont(get_font(12, bold=True))
-        lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        lbl.setStyleSheet(f"color: {Theme.text()};")
         form_layout.addWidget(lbl)
         self._steps = QTextEdit()
         self._steps.setFont(get_font(12))
@@ -92,7 +92,7 @@ class AutomationProposalView(QWidget):
 
         lbl = QLabel("Problemas actuales")
         lbl.setFont(get_font(12, bold=True))
-        lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        lbl.setStyleSheet(f"color: {Theme.text()};")
         form_layout.addWidget(lbl)
         self._problems = QTextEdit()
         self._problems.setFont(get_font(12))
@@ -142,13 +142,13 @@ class AutomationProposalView(QWidget):
 
         self._score_result = QLabel("")
         self._score_result.setFont(get_font(14, bold=True))
-        self._score_result.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        self._score_result.setStyleSheet(f"color: {Theme.text()};")
         self._score_result.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scoring_layout.addWidget(self._score_result)
 
         self._score_detail = QLabel("")
         self._score_detail.setFont(get_font(11))
-        self._score_detail.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        self._score_detail.setStyleSheet(f"color: {Theme.text_secondary()};")
         self._score_detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scoring_layout.addWidget(self._score_detail)
 

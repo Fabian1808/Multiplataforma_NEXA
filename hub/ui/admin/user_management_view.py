@@ -16,17 +16,17 @@ from PySide6.QtWidgets import (
 from hub.core.auth_service import AuthService
 from hub.core.audit_service import AuditService
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, ERROR, get_font, Icon, Theme,
+    NEXAStyles, ACCENT, SUCCESS, WARNING, ERROR, INFO, get_font, Icon, Theme,
 )
 
 logger = logging.getLogger(__name__)
 
-_ROLE_COLORS = {"administrador": ACCENT, "gestor": WARNING, "usuario": SUCCESS}
+_ROLE_COLORS = {"administrador": ACCENT, "gestor": WARNING, "desarrollador": INFO, "usuario": SUCCESS}
 _STATUS_COLORS = {1: SUCCESS, 0: ERROR}
 
 
 def _role_label(role: str) -> str:
-    return {"administrador": "Administrador", "gestor": "Gestor", "usuario": "Usuario"}.get(role, role.capitalize())
+    return {"administrador": "Administrador", "gestor": "Gestor", "desarrollador": "Desarrollador", "usuario": "Usuario"}.get(role, role.capitalize())
 
 
 class UserFormDialog(QDialog):
@@ -174,7 +174,7 @@ class UserManagementView(QWidget):
         self._audit = audit
         self._current_user_id = current_user_id
         self._users: list[dict[str, Any]] = []
-        self._roles: list[str] = ["administrador", "gestor", "usuario"]
+        self._roles: list[str] = ["administrador", "gestor", "desarrollador", "usuario"]
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -198,6 +198,18 @@ class UserManagementView(QWidget):
         self._add_btn.clicked.connect(self._on_add_user)
         header_row.addWidget(self._add_btn)
         layout.addLayout(header_row)
+
+        # Explicación de Roles
+        roles_desc = QLabel(
+            "<b>Permisos de Roles:</b><br>"
+            "<b>• Administrador:</b> Control total de la plataforma.<br>"
+            "<b>• Gestor:</b> Gestiona aplicaciones, aprobaciones de mejoras e incidencias.<br>"
+            "<b>• Desarrollador:</b> Mantiene el código de las aplicaciones y actualiza la documentación.<br>"
+            "<b>• Usuario:</b> Puede utilizar aplicaciones y generar solicitudes de mejora/incidencias."
+        )
+        roles_desc.setFont(get_font(11))
+        roles_desc.setStyleSheet(f"color: {Theme.text_secondary()}; background-color: {Theme.input_bg()}; padding: 12px; border: 1px solid {Theme.border()}; border-radius: 8px;")
+        layout.addWidget(roles_desc)
 
         # ---- Toolbar (búsqueda + filtros) ----
         toolbar = QHBoxLayout()

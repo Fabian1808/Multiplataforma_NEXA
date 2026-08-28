@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
+    NEXAStyles, ACCENT, SUCCESS, get_font, Icon,
 )
 
 
@@ -33,7 +33,7 @@ class FeedView(QWidget):
         header_row.addWidget(header_icon)
         header = QLabel("Comunidad NEXA")
         header.setFont(get_font(18, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         header_row.addWidget(header, stretch=1)
 
         self._type_filter = QComboBox()
@@ -100,18 +100,18 @@ class FeedView(QWidget):
             author_info.setSpacing(1)
             author = QLabel(post.get("author_name", "Anónimo"))
             author.setFont(get_font(12, bold=True))
-            author.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            author.setStyleSheet(f"color: {Theme.text()};")
             author_info.addWidget(author)
             meta = f"{post.get('author_area', '')} · {post.get('created_at', '')[:10]}"
             meta_lbl = QLabel(meta)
             meta_lbl.setFont(get_font(9))
-            meta_lbl.setStyleSheet(f"color: {TEXT_MUTED};")
+            meta_lbl.setStyleSheet(f"color: {Theme.text_muted()};")
             author_info.addWidget(meta_lbl)
             top_row.addLayout(author_info, stretch=1)
 
             type_label = post.get("post_type", "general")
             type_colors = {"logro": SUCCESS, "noticia": ACCENT, "tutorial": "#1565C0", "pregunta": "#F9A825"}
-            color = type_colors.get(type_label, TEXT_MUTED)
+            color = type_colors.get(type_label, Theme.text_muted())
             badge = QLabel(post.get("type_label", type_label).capitalize() if hasattr(post.get("type_label", ""), "__call__") else type_label.capitalize())
             badge.setStyleSheet(NEXAStyles.badge(type_label.capitalize(), color))
             top_row.addWidget(badge)
@@ -120,12 +120,12 @@ class FeedView(QWidget):
             if post.get("title"):
                 title = QLabel(post["title"])
                 title.setFont(get_font(13, bold=True))
-                title.setStyleSheet(f"color: {TEXT_PRIMARY};")
+                title.setStyleSheet(f"color: {Theme.text()};")
                 card_layout.addWidget(title)
 
             content = QLabel(post.get("content", ""))
             content.setFont(get_font(11))
-            content.setStyleSheet(f"color: {TEXT_SECONDARY};")
+            content.setStyleSheet(f"color: {Theme.text_secondary()};")
             content.setWordWrap(True)
             card_layout.addWidget(content)
 
@@ -148,6 +148,6 @@ class FeedView(QWidget):
         if not posts:
             empty = QLabel("No hay publicaciones aún. Sé el primero en compartir.")
             empty.setFont(get_font(14))
-            empty.setStyleSheet(f"color: {TEXT_MUTED}; padding: 40px;")
+            empty.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._posts_layout.addWidget(empty)

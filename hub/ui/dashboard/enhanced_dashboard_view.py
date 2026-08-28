@@ -21,7 +21,7 @@ class KPICard(QFrame):
         self.setObjectName("card")
         self.setStyleSheet(f"""
             QFrame#card {{
-                background-color: {Theme.card()};
+                background-color: {Theme.surface()};
                 border: 1px solid {Theme.border()};
                 border-left: 4px solid {color};
                 border-radius: 10px;
@@ -155,10 +155,10 @@ class EnhancedDashboardView(QWidget):
         middle = QHBoxLayout()
         middle.setSpacing(16)
 
-        self._favorites_section = _SectionCard("Herramientas Favoritas", "star")
+        self._favorites_section = _SectionCard("Mis aplicaciones favoritas", "star")
         middle.addWidget(self._favorites_section, stretch=1)
 
-        self._health_section = _SectionCard("Salud de Aplicaciones", "shield")
+        self._health_section = _SectionCard("Solicitudes e Incidencias pendientes", "alert-triangle")
         middle.addWidget(self._health_section, stretch=1)
 
         layout.addLayout(middle)
@@ -166,10 +166,10 @@ class EnhancedDashboardView(QWidget):
         bottom = QHBoxLayout()
         bottom.setSpacing(16)
 
-        self._activity_section = _SectionCard("Actividad Reciente", "activity")
+        self._activity_section = _SectionCard("Actualizaciones y Mejoras recientes", "activity")
         bottom.addWidget(self._activity_section, stretch=1)
 
-        self._tools_section = _SectionCard("Herramientas Populares", "cube")
+        self._tools_section = _SectionCard("Aplicaciones recientemente utilizadas", "clock")
         bottom.addWidget(self._tools_section, stretch=1)
 
         layout.addLayout(bottom, stretch=1)

@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, get_font,
 )
 
 
@@ -37,7 +37,7 @@ class NotificationView(QWidget):
         header_row = QHBoxLayout()
         header = QLabel("Notificaciones")
         header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         header_row.addWidget(header, stretch=1)
         mark_all_btn = QPushButton("Marcar todo como leído")
         mark_all_btn.setStyleSheet(NEXAStyles.secondary_button())
@@ -68,7 +68,7 @@ class NotificationView(QWidget):
         if not self._notifications:
             empty = QLabel("No tienes notificaciones nuevas.")
             empty.setFont(get_font(13))
-            empty.setStyleSheet(f"color: {TEXT_MUTED}; padding: 40px;")
+            empty.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._list_layout.addWidget(empty)
             return
@@ -117,11 +117,11 @@ class NotificationView(QWidget):
             info.setSpacing(2)
             title_lbl = QLabel(title)
             title_lbl.setFont(get_font(12, bold=True))
-            title_lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            title_lbl.setStyleSheet(f"color: {Theme.text()};")
             info.addWidget(title_lbl)
             msg_lbl = QLabel(message)
             msg_lbl.setFont(get_font(11))
-            msg_lbl.setStyleSheet(f"color: {TEXT_SECONDARY};")
+            msg_lbl.setStyleSheet(f"color: {Theme.text_secondary()};")
             msg_lbl.setWordWrap(True)
             info.addWidget(msg_lbl)
             card_layout.addLayout(info, stretch=1)

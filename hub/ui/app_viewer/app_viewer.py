@@ -160,11 +160,11 @@ class AppViewer(QWidget):
 
         # KPI cards
         self._kpi_status = KPIWidget("Estado", "—", "flag", ACCENT)
-        self._kpi_last = KPIWidget("Última ejecución", "—", "clock", Theme.text_secondary())
-        self._kpi_count = KPIWidget("Ejecuciones", "0", "play", ACCENT)
+        self._kpi_version = KPIWidget("Versión", "1.0", "info", Theme.text_secondary())
+        self._kpi_last = KPIWidget("Última actualización", "—", "clock", ACCENT)
         grid.addWidget(self._kpi_status, 0, 0)
-        grid.addWidget(self._kpi_last, 0, 1)
-        grid.addWidget(self._kpi_count, 0, 2)
+        grid.addWidget(self._kpi_version, 0, 1)
+        grid.addWidget(self._kpi_last, 0, 2)
         return hero
 
     def _build_plugin_card(self) -> QWidget:
@@ -277,36 +277,44 @@ class AppViewer(QWidget):
         ico = Icon("settings", 18)
         ico.set_color(ACCENT)
         head.addWidget(ico)
-        title = QLabel("Configuración")
+        title = QLabel("Acciones")
         title.setFont(get_font(13, weight=600))
         title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         head.addWidget(title)
         head.addStretch()
         v.addLayout(head)
 
-        self._execute_btn = QPushButton()
-        ex_icon = Icon("play", 15)
-        ex_icon.set_color("#FFFFFF")
-        self._execute_btn.setLayout(QHBoxLayout())
-        self._execute_btn.layout().setContentsMargins(16, 0, 16, 0)
-        self._execute_btn.layout().setSpacing(8)
-        self._execute_btn.layout().addWidget(ex_icon, 0, Qt.AlignmentFlag.AlignCenter)
-        ex_text = QLabel("Ejecutar")
-        ex_text.setFont(get_font(13, weight=600))
-        ex_text.setStyleSheet("color: #FFFFFF; background: transparent; border: none;")
-        self._execute_btn.layout().addWidget(ex_text, 0, Qt.AlignmentFlag.AlignCenter)
+        self._execute_btn = QPushButton("Abrir Aplicación")
         self._execute_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._execute_btn.setFixedHeight(44)
+        self._execute_btn.setFixedHeight(40)
         self._execute_btn.setStyleSheet(NEXAStyles.primary_button())
         self._execute_btn.clicked.connect(self._on_execute)
         v.addWidget(self._execute_btn)
 
-        self._fav_btn = QPushButton("  Añadir a favoritos")
+        self._fav_btn = QPushButton("Añadir a favoritos")
         self._fav_btn.setStyleSheet(NEXAStyles.secondary_button())
         self._fav_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._fav_btn.setFixedHeight(40)
+        self._fav_btn.setFixedHeight(36)
         self._fav_btn.clicked.connect(self._toggle_favorite)
         v.addWidget(self._fav_btn)
+        
+        self._docs_btn = QPushButton("Ver Documentación")
+        self._docs_btn.setStyleSheet(NEXAStyles.secondary_button())
+        self._docs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._docs_btn.setFixedHeight(36)
+        v.addWidget(self._docs_btn)
+        
+        self._request_btn = QPushButton("Solicitar Mejora")
+        self._request_btn.setStyleSheet(NEXAStyles.secondary_button())
+        self._request_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._request_btn.setFixedHeight(36)
+        v.addWidget(self._request_btn)
+        
+        self._bug_btn = QPushButton("Reportar Incidencia")
+        self._bug_btn.setStyleSheet(NEXAStyles.secondary_button())
+        self._bug_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._bug_btn.setFixedHeight(36)
+        v.addWidget(self._bug_btn)
 
         self._owner_label = QLabel("")
         self._owner_label.setFont(get_font(11))
@@ -324,10 +332,10 @@ class AppViewer(QWidget):
         v.setSpacing(10)
 
         head = QHBoxLayout()
-        ico = Icon("clock", 18)
+        ico = Icon("file", 18)
         ico.set_color(ACCENT)
         head.addWidget(ico)
-        title = QLabel("Últimas ejecuciones")
+        title = QLabel("Evolución y Tecnologías")
         title.setFont(get_font(13, weight=600))
         title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         head.addWidget(title)
@@ -339,11 +347,27 @@ class AppViewer(QWidget):
         self._recent_layout = QVBoxLayout(self._recent_container)
         self._recent_layout.setContentsMargins(0, 0, 0, 0)
         self._recent_layout.setSpacing(6)
-        empty = QLabel("Sin ejecuciones todavía")
-        empty.setFont(get_font(12))
+        
+        # Tecnologías (Placeholder)
+        tech_lbl = QLabel("Tecnologías utilizadas:\nPython, PySide6")
+        tech_lbl.setFont(get_font(11))
+        tech_lbl.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
+        tech_lbl.setWordWrap(True)
+        self._recent_layout.addWidget(tech_lbl)
+        
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"background-color: {Theme.border()}; border: none;")
+        sep.setFixedHeight(1)
+        self._recent_layout.addWidget(sep)
+
+        empty = QLabel("Sin historial de versiones todavía")
+        empty.setFont(get_font(11))
         empty.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
         empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._recent_layout.addWidget(empty)
+        
         v.addWidget(self._recent_container)
         return card
 
@@ -392,11 +416,12 @@ class AppViewer(QWidget):
         self._title.setText(desc.name)
         self._description.setText(desc.description or "")
         self._version_label.setText(f"v{desc.version}")
-        self._owner_label.setText(f"Owner: {desc.owner}")
+        self._owner_label.setText(f"Responsable: {desc.owner}")
+        
         self._kpi_status.set_value(desc.status.value.capitalize())
+        self._kpi_version.set_value(desc.version)
+        self._kpi_last.set_value("Ayer" if self._exec_count > 0 else "N/A")
 
-        status_icon = {"activo": "#2E9E5B", "oficial": "green", "experimental": "amber"}.get(
-            desc.status.value, ACCENT)
         from hub.ui.common.design import PLUGIN_STATUS_BADGES
         label, color = PLUGIN_STATUS_BADGES.get(desc.status.value, (desc.status.value, Theme.text_muted()))
         self._status_badge.setText(label)
@@ -415,11 +440,26 @@ class AppViewer(QWidget):
             item = self._recent_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        # Datos de demostración encadenados a la app cargada
+                
+        # Tecnologías (Placeholder)
+        tech_lbl = QLabel(f"Tecnologías utilizadas:\n{desc.tags if hasattr(desc, 'tags') and desc.tags else 'Python, PySide6'}")
+        tech_lbl.setFont(get_font(11))
+        tech_lbl.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
+        tech_lbl.setWordWrap(True)
+        self._recent_layout.addWidget(tech_lbl)
+        
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"background-color: {Theme.border()}; border: none;")
+        sep.setFixedHeight(1)
+        self._recent_layout.addWidget(sep)
+        
+        # Datos de demostración de versiones
         samples = [
-            (f"{desc.name} — lote de prueba", "hace 2 h", True),
-            ("Validación de datos", "ayer", True),
-            ("Exportación de resultados", "hace 3 días", False),
+            (f"v{desc.version} — Mejoras UI", "hace 2 días", True),
+            ("v0.9.5 — Correcciones menores", "hace 1 semana", True),
+            ("v0.9.0 — MVP Inicial", "hace 1 mes", True),
         ]
         for name, ts, ok in samples:
             self._recent_layout.addWidget(self._recent_row(name, ts, ok))

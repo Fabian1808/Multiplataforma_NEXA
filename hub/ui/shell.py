@@ -436,25 +436,26 @@ class Shell(QWidget):
         layout.setContentsMargins(12, 4, 12, 12)
         layout.setSpacing(2)
 
-        # --- INICIO ---
-        self._add_section_label(layout, "INICIO")
+        # --- PRINCIPAL ---
+        self._add_section_label(layout, "PRINCIPAL")
         self._add_nav_item(layout, "home", "Inicio", P_DASHBOARD)
-
-        # --- HERRAMIENTAS ---
-        self._add_section_label(layout, "HERRAMIENTAS")
         self._add_nav_item(layout, "grid", "Catálogo", P_CATALOG)
         self._add_nav_item(layout, "search", "Búsqueda", P_SEARCH)
-        self._add_nav_item(layout, "apps", "Aplicaciones", P_APP)
 
-        # --- OPERACIONES ---
-        self._add_section_label(layout, "OPERACIONES")
+        # --- GESTIÓN ---
+        self._add_section_label(layout, "GESTIÓN")
+        self._add_nav_item(layout, "apps", "Aplicaciones", P_APP)
         self._add_nav_item(layout, "file", "Propuestas", P_PROPOSALS)
         self._add_nav_item(layout, "list", "Solicitudes", P_REQUESTS)
-        self._add_nav_item(layout, "book", "Conocimiento", P_KNOWLEDGE)
         self._add_nav_item(layout, "wrench", "Incidencias", P_ISSUES)
 
-        # --- REPORTES ---
-        self._add_section_label(layout, "REPORTES")
+        # --- CONOCIMIENTO ---
+        self._add_section_label(layout, "CONOCIMIENTO")
+        self._add_nav_item(layout, "book", "Conocimiento", P_KNOWLEDGE)
+        self._add_nav_item(layout, "activity", "Comunidad", P_COMMUNITY)
+
+        # --- ANALÍTICA ---
+        self._add_section_label(layout, "ANALÍTICA")
         self._add_nav_item(layout, "chart", "Reportes", P_REPORTS)
         self._add_nav_item(layout, "shield", "Auditoría", P_AUDIT)
 
@@ -477,7 +478,6 @@ class Shell(QWidget):
         section_layout.setSpacing(2)
         self._add_section_label_widget(section_layout, "ADMINISTRACIÓN")
         self._add_nav_item(section_layout, "users", "Gestión de Usuarios", P_USERS)
-        self._add_nav_item(section_layout, "activity", "Comunidad", P_COMMUNITY)
         parent_layout.addWidget(section)
         section.setVisible(self._is_admin)
         return section
@@ -988,6 +988,14 @@ class Shell(QWidget):
         set_theme(self._theme_mode)
         save_theme(self._theme_mode)
         self._refresh_theme_button()
+        
+        # Actualizar la paleta global para que los controles cambien
+        from hub.ui.common.design import setup_app_palette
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            setup_app_palette(app)
+            
         self.apply_theme()
 
     def _refresh_theme_button(self) -> None:

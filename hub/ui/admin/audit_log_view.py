@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
+    NEXAStyles, ACCENT, get_font, Icon,
 )
 
 
@@ -33,7 +33,7 @@ class AuditLogView(QWidget):
         header_row.addWidget(header_icon)
         header = QLabel("Registro de Auditoría")
         header.setFont(get_font(18, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         header_row.addWidget(header, stretch=1)
         layout.addLayout(header_row)
 
@@ -68,7 +68,7 @@ class AuditLogView(QWidget):
 
         self._stats_label = QLabel("")
         self._stats_label.setFont(get_font(11))
-        self._stats_label.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        self._stats_label.setStyleSheet(f"color: {Theme.text_secondary()};")
         layout.addWidget(self._stats_label)
 
         self._table = QTableWidget()
@@ -102,7 +102,7 @@ class AuditLogView(QWidget):
                 "create": "#2E7D32", "delete": "#D32F2F", "login": "#1565C0",
                 "update": "#F9A825", "view": "#666666",
             }
-            color = action_colors.get(entry.get("action", ""), TEXT_MUTED)
+            color = action_colors.get(entry.get("action", ""), Theme.text_muted())
             action_item.setForeground(QColor(color))
             self._table.setItem(i, 2, action_item)
             self._table.setItem(i, 3, QTableWidgetItem(entry.get("module", "")))

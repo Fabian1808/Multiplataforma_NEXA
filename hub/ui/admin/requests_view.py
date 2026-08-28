@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    Theme, NEXAStyles, ACCENT, SUCCESS, WARNING, get_font,
 )
 
 
@@ -31,7 +31,7 @@ class RequestsView(QWidget):
         "aprobada": SUCCESS,
         "publicada": SUCCESS,
         "resuelta": SUCCESS,
-        "cerrada": TEXT_MUTED,
+        "cerrada": Theme.text_muted(),
     }
 
     PRIORITY_COLORS = {
@@ -53,7 +53,7 @@ class RequestsView(QWidget):
 
         header = QLabel("Solicitudes")
         header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         main_layout.addWidget(header)
 
         status_row = QHBoxLayout()
@@ -95,7 +95,7 @@ class RequestsView(QWidget):
         if not items:
             empty = QLabel("No hay solicitudes.")
             empty.setFont(get_font(13))
-            empty.setStyleSheet(f"color: {TEXT_MUTED}; padding: 40px;")
+            empty.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._list_layout.addWidget(empty)
             return
@@ -116,17 +116,17 @@ class RequestsView(QWidget):
             top_row = QHBoxLayout()
             id_lbl = QLabel(f"#{rid}")
             id_lbl.setFont(get_font(10))
-            id_lbl.setStyleSheet(f"color: {TEXT_MUTED};")
+            id_lbl.setStyleSheet(f"color: {Theme.text_muted()};")
             top_row.addWidget(id_lbl)
 
-            status_color = self.STATUS_COLORS.get(status, TEXT_MUTED)
+            status_color = self.STATUS_COLORS.get(status, Theme.text_muted())
             status_lbl = QLabel(status.replace("_", " ").title() if status else "Sin estado")
             status_lbl.setFont(get_font(10, bold=True))
             status_lbl.setStyleSheet(f"color: {status_color}; background-color: {status_color}15; padding: 2px 8px; border-radius: 4px;")
             top_row.addWidget(status_lbl)
 
             if priority:
-                pri_color = self.PRIORITY_COLORS.get(priority, TEXT_MUTED)
+                pri_color = self.PRIORITY_COLORS.get(priority, Theme.text_muted())
                 pri_lbl = QLabel(priority.capitalize())
                 pri_lbl.setFont(get_font(10))
                 pri_lbl.setStyleSheet(f"color: {pri_color};")
@@ -137,13 +137,13 @@ class RequestsView(QWidget):
             if owner:
                 owner_lbl = QLabel(f"{owner}")
                 owner_lbl.setFont(get_font(10))
-                owner_lbl.setStyleSheet(f"color: {TEXT_MUTED};")
+                owner_lbl.setStyleSheet(f"color: {Theme.text_muted()};")
                 top_row.addWidget(owner_lbl)
             card_layout.addLayout(top_row)
 
             desc = QLabel((req.get("description") or "Sin descripción")[:200])
             desc.setFont(get_font(11))
-            desc.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            desc.setStyleSheet(f"color: {Theme.text()};")
             desc.setWordWrap(True)
             card_layout.addWidget(desc)
 
@@ -151,7 +151,7 @@ class RequestsView(QWidget):
             created = (req.get("created_at") or "N/A")[:10]
             meta = QLabel(f"Área: {area} · {created}")
             meta.setFont(get_font(10))
-            meta.setStyleSheet(f"color: {TEXT_MUTED};")
+            meta.setStyleSheet(f"color: {Theme.text_muted()};")
             card_layout.addWidget(meta)
 
             self._list_layout.addWidget(card)

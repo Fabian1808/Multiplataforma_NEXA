@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font,
+    NEXAStyles, ACCENT, get_font,
 )
 
 
@@ -43,7 +43,7 @@ class RatingWidget(QWidget):
 
         title = QLabel(f"¿Te ayudó {self._plugin_name}?")
         title.setFont(get_font(12, bold=True))
-        title.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        title.setStyleSheet(f"color: {Theme.text()};")
         layout.addWidget(title)
 
         btn_row = QHBoxLayout()
@@ -66,7 +66,7 @@ class RatingWidget(QWidget):
         time_row = QHBoxLayout()
         time_lbl = QLabel("¿Cuánto tiempo te ahorró?")
         time_lbl.setFont(get_font(11))
-        time_lbl.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        time_lbl.setStyleSheet(f"color: {Theme.text_secondary()};")
         time_row.addWidget(time_lbl)
 
         self._time_buttons: list[QPushButton] = []

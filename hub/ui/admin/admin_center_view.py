@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 from hub.core.health_check import HealthCheckService
 from hub.models.plugin import PluginDescriptor
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, SUCCESS, WARNING, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, get_font, Icon,
+    NEXAStyles, ACCENT, SUCCESS, WARNING, get_font, Icon,
 )
 
 _PAGE_APPS = 0
@@ -41,7 +41,7 @@ class AdminCenterView(QWidget):
 
         nav = QWidget()
         nav.setFixedWidth(200)
-        nav.setStyleSheet(f"background-color: {TEXT_PRIMARY};")
+        nav.setStyleSheet(f"background-color: {Theme.text()};")
         nav_layout = QVBoxLayout(nav)
         nav_layout.setContentsMargins(8, 16, 8, 16)
         nav_layout.setSpacing(4)
@@ -93,7 +93,7 @@ class AdminCenterView(QWidget):
 
         header = QLabel("Gestión de Herramientas")
         header.setFont(get_font(18, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         layout.addWidget(header)
 
         scroll = QScrollArea()
@@ -115,7 +115,7 @@ class AdminCenterView(QWidget):
 
         header = QLabel("Health Check de Herramientas")
         header.setFont(get_font(18, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         layout.addWidget(header)
 
         self._health_list = QVBoxLayout()
@@ -132,12 +132,12 @@ class AdminCenterView(QWidget):
 
         header = QLabel("Búsquedas sin Resultado")
         header.setFont(get_font(18, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         layout.addWidget(header)
 
         subtitle = QLabel("Estas búsquedas indican herramientas que los usuarios necesitan pero no existen.")
         subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
         layout.addWidget(subtitle)
 
         self._opportunities_list = QVBoxLayout()
@@ -188,9 +188,9 @@ class AdminCenterView(QWidget):
             name_row = QHBoxLayout()
             name = QLabel(plugin.name)
             name.setFont(get_font(12, bold=True))
-            name.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            name.setStyleSheet(f"color: {Theme.text()};")
             name_row.addWidget(name, stretch=1)
-            status_color = SUCCESS if plugin.status.value == "oficial" else WARNING if plugin.status.value == "beta" else TEXT_MUTED
+            status_color = SUCCESS if plugin.status.value == "oficial" else WARNING if plugin.status.value == "beta" else Theme.text_muted()
             status_lbl = QLabel(plugin.status.value.capitalize())
             status_lbl.setFont(get_font(10))
             status_lbl.setStyleSheet(f"color: {status_color};")
@@ -199,7 +199,7 @@ class AdminCenterView(QWidget):
 
             meta = QLabel(f"v{plugin.version} · Owner: {plugin.owner} · {plugin.execution_count} ejecuciones")
             meta.setFont(get_font(10))
-            meta.setStyleSheet(f"color: {TEXT_MUTED};")
+            meta.setStyleSheet(f"color: {Theme.text_muted()};")
             card_layout.addWidget(meta)
 
             self._apps_grid.addWidget(card, i // 2, i % 2)
@@ -217,7 +217,7 @@ class AdminCenterView(QWidget):
             card_layout.setSpacing(12)
 
             status_colors = {"operational": SUCCESS, "warning": WARNING, "error": "#D32F2F"}
-            color = status_colors.get(report.status, TEXT_MUTED)
+            color = status_colors.get(report.status, Theme.text_muted())
             dot = QLabel("\u25cf")
             dot.setFont(get_font(18))
             dot.setStyleSheet(f"color: {color};")
@@ -227,11 +227,11 @@ class AdminCenterView(QWidget):
             info.setSpacing(2)
             name_lbl = QLabel(plugin_id)
             name_lbl.setFont(get_font(12, bold=True))
-            name_lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            name_lbl.setStyleSheet(f"color: {Theme.text()};")
             info.addWidget(name_lbl)
             msg_lbl = QLabel(report.message)
             msg_lbl.setFont(get_font(10))
-            msg_lbl.setStyleSheet(f"color: {TEXT_SECONDARY};")
+            msg_lbl.setStyleSheet(f"color: {Theme.text_secondary()};")
             info.addWidget(msg_lbl)
             card_layout.addLayout(info, stretch=1)
             self._health_list.addWidget(card)
@@ -245,7 +245,7 @@ class AdminCenterView(QWidget):
         if not opportunities:
             empty = QLabel("No hay búsquedas sin resultado registradas.")
             empty.setFont(get_font(12))
-            empty.setStyleSheet(f"color: {TEXT_MUTED}; padding: 20px;")
+            empty.setStyleSheet(f"color: {Theme.text_muted()}; padding: 20px;")
             self._opportunities_list.addWidget(empty)
             return
 
@@ -255,16 +255,16 @@ class AdminCenterView(QWidget):
             card_layout = QHBoxLayout(card)
 
             query_icon = Icon("search", 15)
-            query_icon.set_color(TEXT_MUTED)
+            query_icon.set_color(Theme.text_muted())
             card_layout.addWidget(query_icon)
             query_lbl = QLabel(f"\"{opp['query']}\"")
             query_lbl.setFont(get_font(12, bold=True))
-            query_lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            query_lbl.setStyleSheet(f"color: {Theme.text()};")
             card_layout.addWidget(query_lbl, stretch=1)
 
             count_lbl = QLabel(f"{opp['occurrences']} busqueda(s)")
             count_lbl.setFont(get_font(11))
-            count_lbl.setStyleSheet(f"color: {TEXT_SECONDARY};")
+            count_lbl.setStyleSheet(f"color: {Theme.text_secondary()};")
             card_layout.addWidget(count_lbl)
 
             self._opportunities_list.addWidget(card)

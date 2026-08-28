@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.ui.common.design import (
-    NEXAStyles, ACCENT, TEXT_PRIMARY, TEXT_SECONDARY, get_font, Icon,
+    NEXAStyles, ACCENT, get_font, Icon,
 )
 
 
@@ -45,13 +45,13 @@ class IssueReportView(QWidget):
         header_row.addWidget(header_icon)
         header = QLabel("Reportar Problema")
         header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        header.setStyleSheet(f"color: {Theme.text()};")
         header_row.addWidget(header, stretch=1)
         layout.addLayout(header_row)
 
         subtitle = QLabel("Describe el problema que encontraste para que podamos solucionarlo.")
         subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {TEXT_SECONDARY};")
+        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
         layout.addWidget(subtitle)
 
         form = QFrame()
@@ -62,7 +62,7 @@ class IssueReportView(QWidget):
         if self._plugin_name:
             lbl = QLabel(f"Herramienta: {self._plugin_name}")
             lbl.setFont(get_font(12, bold=True))
-            lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            lbl.setStyleSheet(f"color: {Theme.text()};")
             form_layout.addWidget(lbl)
 
         self._fields: dict[str, QWidget] = {}
@@ -74,7 +74,7 @@ class IssueReportView(QWidget):
         for key, label_text, _ in field_defs:
             lbl = QLabel(label_text)
             lbl.setFont(get_font(12, bold=True))
-            lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+            lbl.setStyleSheet(f"color: {Theme.text()};")
             form_layout.addWidget(lbl)
             inp = QLineEdit()
             inp.setFont(get_font(12))
@@ -84,7 +84,7 @@ class IssueReportView(QWidget):
 
         lbl = QLabel("¿Qué pasó en realidad?")
         lbl.setFont(get_font(12, bold=True))
-        lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        lbl.setStyleSheet(f"color: {Theme.text()};")
         form_layout.addWidget(lbl)
         self._what_happened = QTextEdit()
         self._what_happened.setFont(get_font(12))
@@ -94,7 +94,7 @@ class IssueReportView(QWidget):
 
         lbl = QLabel("Pasos para reproducir (opcional)")
         lbl.setFont(get_font(12, bold=True))
-        lbl.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        lbl.setStyleSheet(f"color: {Theme.text()};")
         form_layout.addWidget(lbl)
         self._steps = QTextEdit()
         self._steps.setFont(get_font(12))
