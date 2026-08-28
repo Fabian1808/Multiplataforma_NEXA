@@ -124,6 +124,10 @@ class PluginRegistry:
             dependencies=data.get("dependencies", []),
             documentation_url=data.get("documentation_url", ""),
             synonyms=data.get("synonyms", []),
+            launch_mode=data.get("launch_mode", "embedded"),
+            executable_name=data.get("executable_name", ""),
+            launch_paths=data.get("launch_paths", []),
+            launch_url=data.get("launch_url", ""),
         )
 
     def load_plugin_module(self, plugin_id: str) -> Any:

@@ -41,9 +41,10 @@ class AppViewer(QWidget):
     back_clicked = Signal()
     favorite_toggled = Signal(str, bool)
 
-    def __init__(self, registry: PluginRegistry, parent: QWidget | None = None) -> None:
+    def __init__(self, registry: PluginRegistry, launcher=None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._registry = registry
+        self._launcher = launcher
         self._current_plugin: PluginDescriptor | None = None
         self._is_favorite = False
         self._exec_count = 0
@@ -450,6 +451,12 @@ class AppViewer(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
+        # Herramientas externas: mostrar la tarjeta de "abrir aplicación" en vez
+        # de incrustar un widget (evita congelar el hub y mantiene el binario aislado).
+        if desc.is_external:
+            self._plugin_layout.addWidget(self._external_panel(desc), stretch=1)
+            return
+
         factory = self._registry.get_factory(desc.id)
         if factory:
             widget = factory.create_widget(self._plugin_container)
@@ -473,6 +480,76 @@ class AppViewer(QWidget):
             info.setStyleSheet("color: #E5484D; padding: 20px;")
             info.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._plugin_layout.addWidget(info)
+
+    def _external_panel(self, desc: PluginDescriptor) -> QWidget:
+        """Panel para herramientas externas: estado de instalación + abrir."""
+        from PySide6.QtWidgets import QMessageBox
+
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(12, 12, 12, 12)
+        lay.setSpacing(14)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        outer_ico = Icon("cube", 44)
+        outer_ico.set_color(ACCENT)
+        lay.addWidget(outer_ico, 0, Qt.AlignmentFlag.AlignCenter)
+
+        type_lbl = QLabel("Aplicación de escritorio independiente")
+        type_lbl.setFont(get_font(13, weight=600))
+        type_lbl.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        type_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(type_lbl)
+
+        installed = bool(self._launcher and self._launcher.is_installed(desc))
+        state = "Instalada — lista para abrir" if installed else "No instalada — se descargará al abrir"
+        state_lbl = QLabel(state)
+        state_lbl.setFont(get_font(11))
+        state_lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        state_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(state_lbl)
+
+        hint = QLabel(
+            "Esta herramienta se ejecuta por separado del Hub.\n"
+            "Al pulsar 'Abrir aplicación' se inicia como proceso independiente.")
+        hint.setFont(get_font(11))
+        hint.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
+
+        open_btn = QPushButton("  Abrir aplicación")
+        open_btn.setStyleSheet(NEXAStyles.primary_button())
+        open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        open_btn.setFixedWidth(220)
+        open_btn.setFixedHeight(44)
+        icon = Icon("play", 15)
+        icon.set_color("#FFFFFF")
+        open_btn.setLayout(QHBoxLayout())
+        open_btn.layout().setContentsMargins(16, 0, 16, 0)
+        open_btn.layout().setSpacing(8)
+        open_btn.layout().addWidget(icon, 0, Qt.AlignmentFlag.AlignCenter)
+        open_txt = QLabel("Abrir aplicación")
+        open_txt.setFont(get_font(13, weight=600))
+        open_txt.setStyleSheet("color: #FFFFFF; background: transparent; border: none;")
+        open_btn.layout().addWidget(open_txt, 0, Qt.AlignmentFlag.AlignCenter)
+        open_btn.clicked.connect(lambda: self._launch_external(desc))
+        lay.addWidget(open_btn, 0, Qt.AlignmentFlag.AlignCenter)
+
+        return w
+
+    def _launch_external(self, desc: PluginDescriptor) -> None:
+        from PySide6.QtWidgets import QMessageBox
+        if self._launcher is None:
+            QMessageBox.warning(self, "No disponible", "El lanzador de aplicaciones no está configurado.")
+            return
+        ok, msg = self._launcher.launch(desc)
+        if ok:
+            self._exec_count += 1
+            self._kpi_count.set_value(str(self._exec_count))
+            QMessageBox.information(self, "Abrir aplicación", msg)
+        else:
+            QMessageBox.warning(self, "No se pudo abrir", msg)
 
     def _show_error(self, message: str) -> None:
         self._error_detail.setText(message)

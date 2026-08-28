@@ -13,5 +13,9 @@
   "icon": "🏭",
   "permissions": ["read_files", "write_files", "execute", "sap_com"],
   "dependencies": ["PySide6", "pywin32", "openpyxl", "PyYAML"],
-  "documentation_url": ""
+  "documentation_url": "",
+  "launch_mode": "external",
+  "executable_name": "Aplicativo_SAP.exe",
+  "launch_paths": ["C:\\Users\\fabia\\Documents\\Sistema_Automatizacion_SAP-master\\dist\\Aplicativo_SAP.exe"],
+  "launch_url": "\\\\SERVIDOR-NEXA\\Aplicaciones\\SAP\\Aplicativo_SAP.exe"
 }

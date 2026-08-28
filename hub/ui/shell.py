@@ -340,7 +340,7 @@ class Shell(QWidget):
         return view
 
     def _create_app_viewer(self) -> AppViewer:
-        view = AppViewer(self._svc.registry)
+        view = AppViewer(self._svc.registry, launcher=self._svc.app_launcher)
         view.back_clicked.connect(self._go_back)
         view.favorite_toggled.connect(self._on_favorite_toggled)
         return view
@@ -368,7 +368,15 @@ class Shell(QWidget):
         return AuditLogView()
 
     def _create_users(self) -> UserManagementView:
-        return UserManagementView()
+        view = UserManagementView(
+            auth=self._svc.auth,
+            audit=self._svc.audit,
+            current_user_id=self._svc.user_id,
+        )
+        view.data_changed.connect(self._refresh_users)
+        roles = [r["name"] for r in self._svc.auth.get_all_roles()]
+        view.set_roles(roles)
+        return view
 
     def _create_community(self) -> FeedView:
         return FeedView()
@@ -810,7 +818,7 @@ class Shell(QWidget):
         view = self._get_page(P_USERS)
         if view is None:
             return
-        users = self._svc.auth.get_all_users()
+        users = self._svc.auth.get_all_users(include_inactive=True)
         view.set_users(users)
 
     def _refresh_feed(self) -> None:

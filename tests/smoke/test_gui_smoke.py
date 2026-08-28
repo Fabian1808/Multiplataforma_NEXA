@@ -23,13 +23,15 @@ def services():
 
 
 def test_gui_shell_creation(qt_app, services):
-    from hub.ui.shell import Shell
+    from hub.ui.shell import Shell, P_DASHBOARD
     shell = Shell(services)
     user_data = services.auth.get_user_by_username("fabian")
     assert user_data is not None
     shell.setup_ui(user_data)
     assert shell.windowTitle().startswith("NEXA Productivity Hub")
-    assert shell._stack.count() == 16
+    # Con lazy loading solo el Dashboard se crea al inicio; el resto se instancia bajo demanda.
+    assert len(shell._page_factories) == 14
+    assert P_DASHBOARD in shell._pages
     shell.close()
 
 

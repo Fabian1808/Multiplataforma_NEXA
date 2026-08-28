@@ -191,9 +191,67 @@ class AuthService:
     def get_user(self, user_id: str) -> dict[str, Any] | None:
         return self._load_user_full(user_id)
 
-    def get_all_users(self) -> list[dict[str, Any]]:
-        rows = self._db.fetchall("SELECT id FROM users WHERE is_active = 1 ORDER BY name")
-        return [self._load_user_full(r["id"]) for r in rows]
+    def get_all_users(self, include_inactive: bool = False) -> list[dict[str, Any]]:
+        if include_inactive:
+            rows = self._db.fetchall("SELECT id FROM users ORDER BY name")
+        else:
+            rows = self._db.fetchall("SELECT id FROM users WHERE is_active = 1 ORDER BY name")
+        return [self._load_user_full(r["id"]) for r in rows if self._load_user_full(r["id"])]
+
+    def username_exists(self, username: str, exclude_user_id: str = "") -> bool:
+        """Verifica si el nombre de usuario ya está en uso."""
+        if exclude_user_id:
+            row = self._db.fetchone(
+                "SELECT id FROM users WHERE username = ? COLLATE NOCASE AND id != ?",
+                (username, exclude_user_id),
+            )
+        else:
+            row = self._db.fetchone(
+                "SELECT id FROM users WHERE username = ? COLLATE NOCASE", (username,)
+            )
+        return row is not None
+
+    def delete_user(self, user_id: str) -> bool:
+        """Elimina definitivamente un usuario y sus relaciones."""
+        if not user_id:
+            return False
+        try:
+            self._db.execute("DELETE FROM user_roles WHERE user_id = ?", (user_id,))
+            self._db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            self._db.execute("DELETE FROM user_favorites WHERE user_id = ?", (user_id,))
+            self._db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            self._db.commit()
+            return True
+        except Exception:
+            logger.exception("Error al eliminar usuario %s", user_id)
+            return False
+
+    def set_active(self, user_id: str, is_active: bool) -> dict[str, Any] | None:
+        """Activa o desactiva (suspende) una cuenta de usuario."""
+        now = datetime.now().isoformat()
+        self._db.execute(
+            "UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?",
+            (1 if is_active else 0, now, user_id),
+        )
+        if not is_active:
+            # Revocar sesiones activas al suspender
+            self._db.execute("UPDATE sessions SET is_active = 0 WHERE user_id = ?", (user_id,))
+        self._db.commit()
+        return self._load_user_full(user_id)
+
+    def reset_password(self, user_id: str, new_password: str) -> bool:
+        """Restablece la contraseña de un usuario."""
+        if not new_password:
+            return False
+        now = datetime.now().isoformat()
+        self._db.execute(
+            "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+            (self._hash_password(new_password), now, user_id),
+        )
+        # Invalidar sesiones activas por seguridad
+        self._db.execute("UPDATE sessions SET is_active = 0 WHERE user_id = ?", (user_id,))
+        self._db.commit()
+        return True
 
     def get_user_by_username(self, username: str) -> dict[str, Any] | None:
         row = self._db.fetchone("SELECT id FROM users WHERE username = ?", (username,))

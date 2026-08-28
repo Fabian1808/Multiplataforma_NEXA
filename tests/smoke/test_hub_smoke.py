@@ -29,6 +29,18 @@ def test_plugin_discovery() -> None:
     assert "_template" not in plugin_ids, "_template no debe ser registrado"
 
 
+def test_external_plugins_launch_metadata() -> None:
+    base_dir = Path(__file__).resolve().parent.parent.parent
+    registry = PluginRegistry(base_dir)
+    discovered = {p.id: p for p in registry.discover()}
+    for pid, exe in (("horas_extras", "Aplicativo_Rainbow.exe"), ("sap_automation", "Aplicativo_SAP.exe")):
+        desc = discovered[pid]
+        assert desc.is_external, f"{pid} debe ser launch_mode=external"
+        assert desc.executable_name == exe
+        assert desc.launch_paths, f"{pid} debe tener launch_paths"
+        assert desc.launch_url, f"{pid} debe tener launch_url (ruta de red)"
+
+
 def test_catalog_search_integration() -> None:
     base_dir = Path(__file__).resolve().parent.parent.parent
     registry = PluginRegistry(base_dir)

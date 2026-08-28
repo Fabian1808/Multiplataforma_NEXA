@@ -24,6 +24,7 @@ from hub.core.workflow_engine import WorkflowEngine
 from hub.core.report_service import ReportService
 from hub.core.app_state_service import AppStateService
 from hub.core.favorites_service import FavoritesService
+from hub.core.app_launcher_service import AppLauncherService
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,10 @@ class ServiceContainer:
         self.audit = AuditService(self._db)
         self.config = ConfigService()
         self.registry = PluginRegistry()
+        try:
+            self.registry.discover()
+        except Exception:
+            logger.exception("Error descubriendo plugins al iniciar")
         self.catalog = CatalogService(self.registry)
         self.search = SearchEngine(self._db)
         self.metrics = MetricsCollector(self._db)
@@ -52,6 +57,7 @@ class ServiceContainer:
         self.reports = ReportService(self._db)
         self.app_states = AppStateService(self._db)
         self.favorites = FavoritesService(self._db)
+        self.app_launcher = AppLauncherService()
         self.current_user: dict[str, Any] | None = None
         self._ensure_demo_user()
         self._seed_demo_data()

@@ -55,6 +55,18 @@ class PluginDescriptor:
     created_at: datetime = field(default_factory=datetime.now)
     changelog: list[dict[str, Any]] = field(default_factory=list)
     synonyms: list[str] = field(default_factory=list)
+    # Estrategia de ejecución híbrida:
+    #  - launch_mode == "embedded" (default): widget Qt integrado en el hub.
+    #  - launch_mode == "external": se lanza un ejecutable independiente (QProcess)
+    #    cuyo binario se resuelve mediante executable_name / launch_paths.
+    launch_mode: str = "embedded"
+    executable_name: str = ""
+    launch_paths: list[str] = field(default_factory=list)
+    launch_url: str = ""
+
+    @property
+    def is_external(self) -> bool:
+        return self.launch_mode == "external"
 
     def matches_query(self, query: str) -> float:
         """Puntuación de relevancia para búsqueda. 0.0 = sin match, 1.0 = match perfecto."""
@@ -122,4 +134,8 @@ class PluginDescriptor:
             "created_at": self.created_at.isoformat(),
             "changelog": self.changelog,
             "synonyms": self.synonyms,
+            "launch_mode": self.launch_mode,
+            "executable_name": self.executable_name,
+            "launch_paths": self.launch_paths,
+            "launch_url": self.launch_url,
         }
