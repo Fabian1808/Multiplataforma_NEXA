@@ -14,6 +14,8 @@ a = Analysis(
     datas=[
         (str(root / "plugins"), "plugins"),
         (str(root / "modules"), "modules"),
+        (str(root / "assets"), "assets"),
+        (str(root / "hub" / "infrastructure" / "migrations"), "hub/infrastructure/migrations"),
     ],
     hiddenimports=[
         "hub",
@@ -91,11 +93,28 @@ a = Analysis(
         "PySide6.QtCore",
         "PySide6.QtGui",
         "PySide6.QtWidgets",
+        "PySide6.QtWebEngineWidgets",
+        "PySide6.QtWebEngineCore",
         "PySide6.QtSvg",
         "PySide6.QtNetwork",
         "openpyxl",
+        "pandas",
+        "numpy",
+        "PySide6.QtCharts",
         "PIL",
         "yaml",
+        "win32com",
+        "win32api",
+        "win32con",
+        "win32timezone",
+        "pythoncom",
+        "concurrent.futures",
+        "difflib",
+        "unicodedata",
+        "tempfile",
+        "csv",
+        "hashlib",
+        "urllib.request",
     ],
     hookspath=[],
     hooksconfig={},
@@ -144,3 +163,6 @@ coll = COLLECT(
     upx_exclude=[],
     name="NEXA Hub",
 )
+
+
+

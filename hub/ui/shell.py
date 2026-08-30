@@ -16,10 +16,12 @@ from PySide6.QtGui import QShowEvent, QColor, QPixmap
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QStackedWidget, QVBoxLayout, QWidget, QMessageBox, QScrollArea,
+    QSystemTrayIcon, QMenu
 )
 
 from hub import __app_name__, __version__
 from hub.core.service_container import ServiceContainer
+from hub.i18n import tr, get_lang, set_lang, on_lang_change, off_lang_change
 from hub.ui.auth.login_view import LoginView
 from hub.ui.admin.admin_center_view import AdminCenterView
 from hub.ui.admin.app_audit_view import AppAuditView
@@ -41,6 +43,7 @@ from hub.ui.common.design import (
     NEXAStyles,
     ACCENT,
     Icon,
+    SvgIcon,
     get_font,
     is_dark,
     get_theme,
@@ -88,21 +91,21 @@ P_FAILURE_DETAIL = "failure_detail"
 P_NOTIFICATIONS = "notifications"
 
 _PAGE_TITLES: dict[str, str] = {
-    P_DASHBOARD: "Inicio",
-    P_CATALOG: "Catálogo",
-    P_SEARCH: "Búsqueda",
-    P_APP: "Aplicación",
-    P_PROPOSALS: "Propuestas",
-    P_REQUESTS: "Solicitudes",
-    P_KNOWLEDGE: "Conocimiento",
-    P_ISSUES: "Incidencias",
-    P_REPORTS: "Reportes",
-    P_AUDIT: "Auditoría",
-    P_USERS: "Gestión de Usuarios",
-    P_COMMUNITY: "Comunidad",
-    P_APP_AUDIT: "Auditoría de Aplicaciones",
-    P_FAILURE_DETAIL: "Detalle de Fallo",
-    P_NOTIFICATIONS: "Notificaciones",
+    P_DASHBOARD: tr("nav.dashboard"),
+    P_CATALOG:   tr("nav.catalog"),
+    P_SEARCH:    tr("nav.search"),
+    P_APP:       tr("nav.app"),
+    P_PROPOSALS: tr("nav.proposals"),
+    P_REQUESTS:  tr("nav.requests"),
+    P_KNOWLEDGE: tr("nav.knowledge"),
+    P_ISSUES:    tr("nav.issues"),
+    P_REPORTS:   tr("nav.reports"),
+    P_AUDIT:     tr("nav.audit"),
+    P_USERS:     tr("nav.users"),
+    P_COMMUNITY: tr("nav.community"),
+    P_APP_AUDIT: tr("nav.app_audit"),
+    P_FAILURE_DETAIL: tr("nav.failure"),
+    P_NOTIFICATIONS:  tr("nav.notifications"),
 }
 
 # Module key used for RBAC check_access(user_id, module, action).
@@ -181,7 +184,7 @@ class _NavItem(QWidget):
         self._accent.setObjectName("accent")
         self._accent.setFixedSize(3, 20)
 
-        self._icon = Icon(icon_name, 20)
+        self._icon = SvgIcon(icon_name, 20)
         self._icon.setFixedSize(24, 24)
         self._icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -381,7 +384,7 @@ class Shell(QWidget):
         self._header = self._create_header()
         right_layout.addWidget(self._header)
 
-        self._access_denied_label = QLabel("⚠ No tiene permisos para acceder a esta sección.")
+        self._access_denied_label = QLabel(tr("access.denied"))
         self._access_denied_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._access_denied_label.setFont(get_font(14))
         self._access_denied_label.setStyleSheet(f"color: {Theme.text_secondary()}; background: {Theme.bg()};")
@@ -462,6 +465,7 @@ class Shell(QWidget):
     def _create_search(self) -> SearchView:
         view = SearchView()
         view.plugin_clicked.connect(self._on_plugin_clicked)
+        view.article_clicked.connect(self._on_search_article_clicked)
         return view
 
     def _create_app_viewer(self) -> AppViewer:
@@ -476,7 +480,9 @@ class Shell(QWidget):
         return view
 
     def _create_requests(self) -> RequestsView:
-        return RequestsView()
+        view = RequestsView()
+        view.request_selected.connect(self._show_request_detail)
+        return view
 
     def _create_knowledge(self) -> KnowledgeBaseView:
         return KnowledgeBaseView()
@@ -574,7 +580,9 @@ class Shell(QWidget):
         card_lay.addStretch()
         self._brand_row_layout.addWidget(self._logo_card, stretch=1)
 
-        self._collapse_btn = self._make_icon_btn("panel-left", "Contraer menú", self._toggle_sidebar)
+        self._collapse_btn = self._make_icon_btn("menu", "Contraer menú", self._toggle_sidebar)
+        self._collapse_btn_icon = self._collapse_btn.icon
+
         self._brand_row_layout.addWidget(self._collapse_btn)
 
         self._hover_frames.append(self._collapse_btn)
@@ -597,24 +605,16 @@ class Shell(QWidget):
         self._section_labels: list[QLabel] = []
 
         groups = [
-            ("PRINCIPAL", [
-                ("house",          "Inicio",            P_DASHBOARD),
-                ("layout-grid",    "Catálogo",          P_CATALOG),
-                ("search",         "Búsqueda",          P_SEARCH),
+            (tr("section.main"), [
+                ("inicio",         tr("nav.dashboard"),   P_DASHBOARD),
+                ("catalogo",       tr("nav.catalog"),     P_CATALOG),
+                ("buscar",         tr("nav.search"),      P_SEARCH),
             ]),
-            ("GESTIÓN", [
-                ("app-window",     "Aplicaciones",      P_APP),
-                ("lightbulb",      "Propuestas",        P_PROPOSALS),
-                ("clipboard-list", "Solicitudes",       P_REQUESTS),
-                ("triangle-alert", "Incidencias",       P_ISSUES),
-            ]),
-            ("CONOCIMIENTO", [
-                ("book-open",      "Conocimiento",      P_KNOWLEDGE),
-                ("users-round",    "Comunidad",         P_COMMUNITY),
-            ]),
-            ("ANALÍTICA", [
-                ("chart-column",   "Reportes",          P_REPORTS),
-                ("shield-check",   "Auditoría",         P_AUDIT),
+            (tr("section.manage"), [
+                ("propuestas",     tr("nav.proposals"),   P_PROPOSALS),
+                ("solicitudes",    tr("nav.requests"),    P_REQUESTS),
+                ("incidencias",    tr("nav.issues"),      P_ISSUES),
+                ("comunidad",      tr("nav.community"),   P_COMMUNITY),
             ]),
         ]
         for title, items in groups:
@@ -634,8 +634,10 @@ class Shell(QWidget):
         section_layout = QVBoxLayout(section)
         section_layout.setContentsMargins(0, 6, 0, 0)
         section_layout.setSpacing(2)
-        self._add_section_label(section_layout, "ADMINISTRACIÓN")
-        self._add_nav_item(section_layout, "user-cog", "Gestión de Usuarios", P_USERS)
+        self._add_section_label(section_layout, tr("section.admin"))
+        self._add_nav_item(section_layout, "reportes",   tr("nav.reports"),  P_REPORTS)
+        self._add_nav_item(section_layout, "auditoria",  tr("nav.audit"),    P_AUDIT)
+        self._add_nav_item(section_layout, "usuarios",   tr("nav.users"),    P_USERS)
         parent_layout.addWidget(section)
         section.setVisible(self._is_admin)
         return section
@@ -662,7 +664,7 @@ class Shell(QWidget):
         fr.setFixedSize(30, 30)
         fr.setCursor(Qt.CursorShape.PointingHandCursor)
         fr.setToolTip(tooltip)
-        ico = Icon(icon_name, 16)
+        ico = SvgIcon(icon_name, 16)
         ico.set_color(Theme.sidebar_text_secondary())
         lay = QHBoxLayout(fr)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -674,19 +676,19 @@ class Shell(QWidget):
         return fr
 
     def _build_theme_toggle(self) -> QWidget:
+        """Pill sol/luna para el SIDEBAR (ya no se usa, mantenido por compatibilidad)."""
         self._pill_icons: dict[str, Icon] = {}
         self._theme_pill = QFrame()
         self._theme_pill.setObjectName("themePill")
         self._theme_pill.setFixedHeight(32)
         self._theme_pill.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._theme_pill.setToolTip("Cambiar tema claro/oscuro")
+        self._theme_pill.setToolTip(tr("header.theme_dark"))
         lay = QHBoxLayout(self._theme_pill)
         lay.setContentsMargins(3, 3, 3, 3)
         lay.setSpacing(2)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self._pill_sun = self._make_pill_btn("sun", "Modo claro", lambda: self._set_theme("light"))
-        self._pill_moon = self._make_pill_btn("moon", "Modo oscuro", lambda: self._set_theme("dark"))
+        self._pill_sun = self._make_pill_btn("sun", tr("header.theme_light"), lambda: self._set_theme("light"))
+        self._pill_moon = self._make_pill_btn("moon", tr("header.theme_dark"), lambda: self._set_theme("dark"))
         lay.addWidget(self._pill_sun)
         lay.addWidget(self._pill_moon)
         self._hover_frames.append(self._theme_pill)
@@ -715,43 +717,14 @@ class Shell(QWidget):
         v.setContentsMargins(12, 10, 12, 12)
         v.setSpacing(2)
 
-        # Fila acciones: apariencia + notificaciones
+        # Notificaciones
         self._actions_row = QWidget()
         actions = QHBoxLayout(self._actions_row)
         actions.setContentsMargins(0, 0, 0, 0)
         actions.setSpacing(6)
 
-        actions.addWidget(self._build_theme_toggle())
-
-        self._notif_box = QFrame()
-        self._notif_box.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._notif_box.setToolTip("Notificaciones")
-        nf = QHBoxLayout(self._notif_box)
-        nf.setContentsMargins(7, 5, 7, 5)
-        nf.setSpacing(4)
-        bell = Icon("bell", 16)
-        bell.set_color(Theme.sidebar_text_secondary())
-        self._sidebar_icons.append(bell)
-        nf.addWidget(bell)
-        self._notif_badge = QLabel("")
-        self._notif_badge.setFont(get_font(9, weight=700))
-        self._notif_badge.setStyleSheet(
-            f"background-color: {ACCENT}; color: #FFFFFF; border-radius: 8px; "
-            "padding: 1px 5px; min-width: 14px; max-width: 14px;")
-        self._notif_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._notif_badge.hide()
-        nf.addWidget(self._notif_badge)
-        self._notif_box.mousePressEvent = lambda e: self._navigate_to(P_NOTIFICATIONS)
-        self._hover_frames.append(self._notif_box)
-        actions.addWidget(self._notif_box)
-
         actions.addStretch()
         v.addWidget(self._actions_row)
-
-        # Lista de acciones texto (Preferencias / Apariencia)
-        self._prefs_row = self._make_text_action("settings", "Preferencias")
-        self._prefs_row.mousePressEvent = lambda e: self._navigate_to(P_NOTIFICATIONS)
-        v.addWidget(self._prefs_row)
 
         # ---- Perfil ----
         v.addSpacing(6)
@@ -837,6 +810,11 @@ class Shell(QWidget):
                   else NEXAStyles.SIDEBAR_WIDTH)
         self._animate_sidebar_width(target)
         self._collapse_btn.setToolTip("Expandir menú" if self._sidebar_collapsed else "Contraer menú")
+        # Cambiar icono: chevron-right cuando está colapsado, hamburger cuando está expandido
+        if hasattr(self, "_collapse_btn_icon") and self._collapse_btn_icon:
+            new_icon = "chevron-right" if self._sidebar_collapsed else "menu"
+            self._collapse_btn_icon.set_icon(new_icon)
+
 
     def _animate_sidebar_width(self, target: int) -> None:
         anim = QVariantAnimation(self)
@@ -861,7 +839,6 @@ class Shell(QWidget):
             self._brand_row_layout.setContentsMargins(21, 12, 21, 12)
             self._nav_layout.setContentsMargins(4, 6, 4, 16)
             self._actions_row.setVisible(False)
-            self._prefs_row.setVisible(False)
             self._profile_name.setVisible(False)
             self._profile_role.setVisible(False)
             self._logout_icon.setVisible(False)
@@ -871,7 +848,6 @@ class Shell(QWidget):
             self._brand_row_layout.setContentsMargins(12, 12, 10, 12)
             self._nav_layout.setContentsMargins(12, 6, 12, 16)
             self._actions_row.setVisible(True)
-            self._prefs_row.setVisible(True)
             self._profile_name.setVisible(True)
             self._profile_role.setVisible(True)
             self._logout_icon.setVisible(True)
@@ -887,7 +863,7 @@ class Shell(QWidget):
         header.setObjectName("header")
         header.setStyleSheet(NEXAStyles.header())
         hlayout = QHBoxLayout(header)
-        hlayout.setContentsMargins(24, 0, 24, 0)
+        hlayout.setContentsMargins(24, 0, 16, 0)
         hlayout.setSpacing(16)
 
         # Título / breadcrumb
@@ -897,7 +873,7 @@ class Shell(QWidget):
         self._header_crumb.setFont(get_font(10))
         self._header_crumb.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
         title_col.addWidget(self._header_crumb)
-        self._header_title = QLabel(_PAGE_TITLES.get(P_DASHBOARD, "Inicio"))
+        self._header_title = QLabel(tr("nav.dashboard"))
         self._header_title.setFont(get_font(16, weight=700))
         self._header_title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         title_col.addWidget(self._header_title)
@@ -905,7 +881,7 @@ class Shell(QWidget):
 
         hlayout.addStretch()
 
-        # Buscador global (componente moderno, no caja gigante)
+        # Buscador global
         search_box = QWidget()
         search_box.setObjectName("globalSearch")
         search_box.setStyleSheet(f"""
@@ -922,7 +898,7 @@ class Shell(QWidget):
         s_icon.set_color(Theme.text_muted())
         s_lay.addWidget(s_icon)
         self._header_search = QLineEdit()
-        self._header_search.setPlaceholderText("Buscar...")
+        self._header_search.setPlaceholderText(tr("header.search_placeholder"))
         self._header_search.setFont(get_font(12))
         self._header_search.setStyleSheet(
             f"QLineEdit {{ border: none; background: transparent; color: {Theme.text()}; "
@@ -937,6 +913,57 @@ class Shell(QWidget):
                           f"border-radius: 4px; padding: 2px 6px;")
         s_lay.addWidget(kbd)
         hlayout.addWidget(search_box)
+
+        # ── Separador visual ──
+        sep = QFrame()
+        sep.setFixedSize(1, 28)
+        sep.setStyleSheet(f"background: {Theme.border()}; border: none;")
+        hlayout.addWidget(sep)
+
+        # ── Botón TEMA (Luna / Sol) ──
+        self._header_theme_btn = QFrame()
+        self._header_theme_btn.setObjectName("headerThemeBtn")
+        self._header_theme_btn.setFixedSize(36, 36)
+        self._header_theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        ht_lay = QHBoxLayout(self._header_theme_btn)
+        ht_lay.setContentsMargins(0, 0, 0, 0)
+        self._header_theme_icon = SvgIcon("moon" if not is_dark() else "sun", 18)
+        self._header_theme_icon.set_color(Theme.text_secondary())
+        ht_lay.addWidget(self._header_theme_icon, 0, Qt.AlignmentFlag.AlignCenter)
+        tip = tr("header.theme_dark") if not is_dark() else tr("header.theme_light")
+        self._header_theme_btn.setToolTip(tip)
+        self._header_theme_btn.setStyleSheet(
+            f"QFrame#headerThemeBtn {{ border-radius: 18px; background: transparent; border: none; }}"
+            f" QFrame#headerThemeBtn:hover {{ background: {Theme.hover_bg()}; }}"
+        )
+        self._header_theme_btn.mousePressEvent = lambda e: self._toggle_theme()
+        hlayout.addWidget(self._header_theme_btn)
+
+        # ── Botón IDIOMA (ES | EN) ──
+        self._lang_btn = QFrame()
+        self._lang_btn.setObjectName("langBtn")
+        self._lang_btn.setFixedHeight(32)
+        self._lang_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._lang_btn.setToolTip("Switch language / Cambiar idioma")
+        lang_lay = QHBoxLayout(self._lang_btn)
+        lang_lay.setContentsMargins(10, 0, 10, 0)
+        lang_lay.setSpacing(4)
+        globe_ico = None
+        self._header_globe_icon = None
+
+        self._lang_label = QLabel(get_lang().upper())
+        self._lang_label.setFont(get_font(11, weight=600))
+        self._lang_label.setStyleSheet(
+            f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        lang_lay.addWidget(self._lang_label)
+        self._lang_btn.setStyleSheet(
+            f"QFrame#langBtn {{ border-radius: 8px; background: transparent;"
+            f" border: 1px solid {Theme.border()}; }}"
+            f" QFrame#langBtn:hover {{ border-color: {ACCENT};"
+            f" background: {Theme.hover_bg()}; }}"
+        )
+        self._lang_btn.mousePressEvent = lambda e: self._toggle_lang()
+        hlayout.addWidget(self._lang_btn)
 
         return header
 
@@ -956,6 +983,25 @@ class Shell(QWidget):
 
         self._current_page = page_key
         self._stack.setCurrentWidget(page)
+        # Refresh titles from i18n every time we navigate
+        global _PAGE_TITLES
+        _PAGE_TITLES = {
+            P_DASHBOARD:      tr("nav.dashboard"),
+            P_CATALOG:        tr("nav.catalog"),
+            P_SEARCH:         tr("nav.search"),
+            P_APP:            tr("nav.app"),
+            P_PROPOSALS:      tr("nav.proposals"),
+            P_REQUESTS:       tr("nav.requests"),
+            P_KNOWLEDGE:      tr("nav.knowledge"),
+            P_ISSUES:         tr("nav.issues"),
+            P_REPORTS:        tr("nav.reports"),
+            P_AUDIT:          tr("nav.audit"),
+            P_USERS:          tr("nav.users"),
+            P_COMMUNITY:      tr("nav.community"),
+            P_APP_AUDIT:      tr("nav.app_audit"),
+            P_FAILURE_DETAIL: tr("nav.failure"),
+            P_NOTIFICATIONS:  tr("nav.notifications"),
+        }
         self._header_title.setText(_PAGE_TITLES.get(page_key, ""))
         self._header_crumb.setText(self._page_crumb(page_key))
 
@@ -967,13 +1013,15 @@ class Shell(QWidget):
         self._refresh_page(page_key)
 
     def _page_crumb(self, page_key: str) -> str:
-        return f"NEXA / {_PAGE_TITLES.get(page_key, '')}"
+        prefix = tr("crumb.prefix")
+        return f"{prefix} / {_PAGE_TITLES.get(page_key, '')}"
 
     def _show_access_denied(self) -> None:
         self._current_page = ""
         self._stack.setCurrentWidget(self._access_denied_label)
-        self._header_title.setText("Acceso denegado")
-        self._header_crumb.setText("NEXA / Acceso denegado")
+        self._access_denied_label.setText(tr("access.denied"))
+        self._header_title.setText(tr("crumb.denied"))
+        self._header_crumb.setText(f"{tr('crumb.prefix')} / {tr('crumb.denied')}")
         for item in self._nav_buttons.values():
             item.set_active(False)
 
@@ -1068,13 +1116,112 @@ class Shell(QWidget):
         requests = self._svc.requests.get_all()
         view.set_requests(requests)
 
+    def _show_request_detail(self, request_id: int) -> None:
+        req = self._svc.requests.get(request_id)
+        if not req:
+            return
+            
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton, QComboBox
+        from hub.ui.common.design import Theme, NEXAStyles, get_font
+        
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Detalle Solicitud #{request_id}")
+        dlg.setFixedSize(500, 500)
+        dlg.setStyleSheet(f"QDialog {{ background-color: {Theme.bg()}; }}")
+        
+        layout = QVBoxLayout(dlg)
+        layout.setSpacing(12)
+        
+        title_lbl = QLabel(req.get("title") or "Sin título")
+        title_lbl.setFont(get_font(16, bold=True))
+        title_lbl.setStyleSheet(f"color: {Theme.text()};")
+        layout.addWidget(title_lbl)
+        
+        meta = f"Tipo: {req.get('request_type')} | Área: {req.get('area')} | Usuario: {req.get('created_by')}"
+        meta_lbl = QLabel(meta)
+        meta_lbl.setFont(get_font(11))
+        meta_lbl.setStyleSheet(f"color: {Theme.text_muted()};")
+        layout.addWidget(meta_lbl)
+        
+        desc = QTextEdit()
+        desc.setReadOnly(True)
+        desc.setPlainText(req.get("description") or "Sin descripción")
+        desc.setStyleSheet(f"background-color: {Theme.card()}; color: {Theme.text()}; border: 1px solid {Theme.border()}; border-radius: 8px; padding: 8px;")
+        desc.setFont(get_font(11))
+        layout.addWidget(desc)
+        
+        # Status
+        status_row = QHBoxLayout()
+        status_lbl = QLabel("Estado:")
+        status_lbl.setFont(get_font(12, bold=True))
+        status_lbl.setStyleSheet(f"color: {Theme.text()};")
+        status_row.addWidget(status_lbl)
+        
+        status_combo = QComboBox()
+        status_combo.setStyleSheet(NEXAStyles.combo_box())
+        status_combo.setFont(get_font(11))
+        statuses = ["enviada", "en_revision", "en_desarrollo", "pruebas", "aprobada", "cerrada"]
+        status_combo.addItems([s.replace("_", " ").title() for s in statuses])
+        
+        current_status = req.get("status", "enviada")
+        if current_status in statuses:
+            status_combo.setCurrentIndex(statuses.index(current_status))
+            
+        status_row.addWidget(status_combo, stretch=1)
+        layout.addLayout(status_row)
+        
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        
+        cancel = QPushButton("Cerrar")
+        cancel.setStyleSheet(NEXAStyles.secondary_button())
+        cancel.clicked.connect(dlg.reject)
+        btn_row.addWidget(cancel)
+        
+        save = QPushButton("Guardar Cambios")
+        save.setStyleSheet(NEXAStyles.primary_button())
+        def on_save():
+            new_status = statuses[status_combo.currentIndex()]
+            if new_status != current_status:
+                self._svc.requests.update(request_id, status=new_status)
+                self._refresh_requests()
+            dlg.accept()
+            
+        save.clicked.connect(on_save)
+        btn_row.addWidget(save)
+        
+        layout.addLayout(btn_row)
+        dlg.exec()
+
     def _refresh_audit(self) -> None:
         view = self._get_page(P_AUDIT)
         if view is None:
             return
-        entries = self._svc.audit.get_entries(limit=200)
+        
+        # Conectar el botón de cargar más si no está conectado
+        try:
+            view.load_more_clicked.disconnect()
+        except Exception:
+            pass
+        view.load_more_clicked.connect(self._load_more_audit)
+        
+        # Mantener el estado de offset en la vista
+        view._current_offset = 0
+        view._current_limit = 50
+        
+        entries = self._svc.audit.get_entries(limit=view._current_limit, offset=view._current_offset)
         count = self._svc.audit.get_entry_count()
-        view.set_entries(entries, count)
+        view.set_entries(entries, count, append=False)
+
+    def _load_more_audit(self) -> None:
+        view = self._get_page(P_AUDIT)
+        if view is None:
+            return
+            
+        view._current_offset += view._current_limit
+        entries = self._svc.audit.get_entries(limit=view._current_limit, offset=view._current_offset)
+        count = self._svc.audit.get_entry_count()
+        view.set_entries(entries, count, append=True)
 
     def _refresh_users(self) -> None:
         view = self._get_page(P_USERS)
@@ -1191,14 +1338,28 @@ class Shell(QWidget):
             self._navigate_to(P_SEARCH)
             self._svc.opportunities.record_search(plugin_id_or_query, len(results))
 
+    def _on_search_plugin_clicked(self, plugin_id: str) -> None:
+        self._navigate_to(P_APP)
+        app_page = self._get_page(P_APP)
+        if app_page and hasattr(app_page, "load_plugin"):
+            app_page.load_plugin(plugin_id)
+
+    def _on_search_article_clicked(self, article_id: int) -> None:
+        self._navigate_to(P_KNOWLEDGE)
+        kb_page = self._get_page(P_KNOWLEDGE)
+        if kb_page and hasattr(kb_page, "open_article_dialog"):
+            kb_page.open_article_dialog(article_id)
+
     def _on_header_search(self) -> None:
         query = self._header_search.text().strip()
         if not query:
             return
         results = self._svc.registry.search(query)
+        kb_results = self._svc.knowledge.search(query)
+        
         search_page = self._get_page(P_SEARCH)
         if search_page:
-            search_page.show_results(query, results)
+            search_page.show_results(query, results, kb_results)
         self._navigate_to(P_SEARCH)
         self._svc.metrics.record_search(query, len(results), self._svc.user_id)
         self._svc.opportunities.record_search(query, len(results))
@@ -1227,6 +1388,8 @@ class Shell(QWidget):
             created_by=self._svc.user_id,
         )
         self._svc.audit.log_create(self._svc.user_id, "requests", "request", str(req_id))
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.information(self, "Propuesta Enviada", "Tu propuesta ha sido enviada con éxito.\nEl equipo de desarrollo la evaluará pronto.")
 
     def _on_issue_submitted(self, data: dict) -> None:
         req_id = self._svc.requests.create(
@@ -1235,6 +1398,8 @@ class Shell(QWidget):
             area=self._svc.user_area, created_by=self._svc.user_id,
         )
         self._svc.audit.log_create(self._svc.user_id, "requests", "request", str(req_id))
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.information(self, "Reporte Enviado", "Tu incidencia ha sido reportada con éxito.\nTe contactaremos en breve.")
 
     def _on_audit_failure_clicked(self, failure_id: str) -> None:
         view = self._get_page(P_FAILURE_DETAIL)
@@ -1257,11 +1422,155 @@ class Shell(QWidget):
         if app:
             setup_app_palette(app)
         self.apply_theme()
+        # Actualizar botón tema del header
+        self._refresh_header_theme_btn()
 
     def _toggle_theme(self) -> None:
         self._set_theme("light" if self._theme_mode == "dark" else "dark")
 
+    def _refresh_header_theme_btn(self) -> None:
+        """Actualiza el icono y tooltip del botón tema en el header."""
+        if not hasattr(self, "_header_theme_btn"):
+            return
+        dark = is_dark()
+        icon_name = "sun" if dark else "moon"
+        tip = tr("header.theme_light") if dark else tr("header.theme_dark")
+        self._header_theme_icon.set_icon(icon_name)
+        self._header_theme_icon.set_color(Theme.text_secondary())
+        self._header_theme_btn.setToolTip(tip)
+        self._header_theme_btn.setStyleSheet(
+            f"QFrame#headerThemeBtn {{ border-radius: 18px; background: transparent; border: none; }}"
+            f" QFrame#headerThemeBtn:hover {{ background: {Theme.hover_bg()}; }}"
+        )
+
+    def _show_preferences(self) -> None:
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QComboBox, QPushButton
+        from hub.i18n import get_lang
+        
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Preferencias de Sistema")
+        dlg.setFixedSize(320, 260)
+        dlg.setStyleSheet(f"QDialog {{ background-color: {Theme.bg()}; }}")
+        v = QVBoxLayout(dlg)
+        v.setSpacing(15)
+        
+        # Tema
+        lbl_theme = QLabel("Apariencia:")
+        lbl_theme.setFont(get_font(12))
+        lbl_theme.setStyleSheet(f"color: {Theme.text()};")
+        v.addWidget(lbl_theme)
+        
+        cb_theme = QComboBox()
+        cb_theme.setFont(get_font(12))
+        cb_theme.setStyleSheet(NEXAStyles.combo_box())
+        cb_theme.addItems(["Claro", "Oscuro"])
+        cb_theme.setCurrentIndex(1 if self._theme_mode == "dark" else 0)
+        v.addWidget(cb_theme)
+        
+        # Idioma
+        lbl_lang = QLabel("Idioma / Language:")
+        lbl_lang.setFont(get_font(12))
+        lbl_lang.setStyleSheet(f"color: {Theme.text()};")
+        v.addWidget(lbl_lang)
+        
+        cb_lang = QComboBox()
+        cb_lang.setFont(get_font(12))
+        cb_lang.setStyleSheet(NEXAStyles.combo_box())
+        cb_lang.addItems(["Español", "English"])
+        cb_lang.setCurrentIndex(0 if get_lang() == "es" else 1)
+        v.addWidget(cb_lang)
+        
+        v.addStretch()
+        btn = QPushButton("Guardar Cambios")
+        btn.setStyleSheet(NEXAStyles.primary_button())
+        btn.clicked.connect(lambda: self._apply_preferences(dlg, cb_theme.currentIndex(), cb_lang.currentIndex()))
+        v.addWidget(btn)
+
+    def _apply_preferences(self, dlg: QDialog, theme_idx: int, lang_idx: int) -> None:
+        new_theme = "dark" if theme_idx == 1 else "light"
+        new_lang = "es" if lang_idx == 0 else "en"
+        
+        if new_theme != self._theme_mode:
+            self._theme_mode = new_theme
+            self._svc.config.set("theme", self._theme_mode)
+            self.apply_theme()
+            
+        if new_lang != get_lang():
+            set_lang(new_lang)
+            
+        dlg.accept()
+        
+        dlg.exec()
+
+    def _apply_preferences(self, dlg, theme_index: int) -> None:
+        mode = "dark" if theme_index == 1 else "light"
+        self._set_theme(mode)
+        dlg.accept()
+
+    def _toggle_lang(self) -> None:
+        """Alterna entre idioma español e inglés."""
+        new_lang = "en" if get_lang() == "es" else "es"
+        set_lang(new_lang)
+        self.apply_language()
+
+    def apply_language(self) -> None:
+        """Actualiza todos los textos de la UI al idioma activo."""
+        # Actualizar label del botón de idioma
+        if hasattr(self, "_lang_label"):
+            self._lang_label.setText(get_lang().upper())
+        # Actualizar placeholder del buscador
+        if hasattr(self, "_header_search"):
+            self._header_search.setPlaceholderText(tr("header.search_placeholder"))
+        # Actualizar etiquetas de secciones del sidebar
+        sec_texts = [
+            tr("section.main"), tr("section.manage"),
+            tr("section.knowledge"), tr("section.analytics"),
+        ]
+        if self._is_admin:
+            sec_texts.append(tr("section.admin"))
+        for i, lbl in enumerate(self._section_labels):
+            if i < len(sec_texts):
+                lbl.setText(sec_texts[i])
+        # Actualizar textos de botones de navegación
+        nav_keys = [
+            (P_DASHBOARD, "nav.dashboard"),
+            (P_CATALOG,   "nav.catalog"),
+            (P_SEARCH,    "nav.search"),
+            (P_APP,       "nav.app"),
+            (P_PROPOSALS, "nav.proposals"),
+            (P_REQUESTS,  "nav.requests"),
+            (P_ISSUES,    "nav.issues"),
+            (P_KNOWLEDGE, "nav.knowledge"),
+            (P_COMMUNITY, "nav.community"),
+            (P_REPORTS,   "nav.reports"),
+            (P_AUDIT,     "nav.audit"),
+            (P_USERS,     "nav.users"),
+        ]
+        for page_key, i18n_key in nav_keys:
+            btn = self._nav_buttons.get(page_key)
+            if btn:
+                btn._label.setText(tr(i18n_key))
+                btn.setToolTip(tr(i18n_key))
+        # Actualizar título activo
+        if self._current_page:
+            self._header_title.setText(tr(f"nav.{self._current_page}") if f"nav.{self._current_page}" in [
+                "nav.dashboard", "nav.catalog", "nav.search", "nav.app",
+                "nav.proposals", "nav.requests", "nav.issues", "nav.knowledge",
+                "nav.community", "nav.reports", "nav.audit", "nav.users",
+                "nav.notifications",
+            ] else _PAGE_TITLES.get(self._current_page, ""))
+        # Actualizar perfil texto
+        if hasattr(self, "_profile_role"):
+            self._profile_role.setText(
+                tr("role.admin") if self._is_admin else tr("role.collaborator")
+            )
+        if hasattr(self, "_prefs_label"):
+            self._prefs_label.setText(tr("action.preferences"))
+        # Actualizar tooltip del botón tema
+        self._refresh_header_theme_btn()
+
     def _refresh_theme_button(self) -> None:
+        """Actualiza el botón tema del sidebar (pill) - mantenido por compatibilidad."""
         if not hasattr(self, "_theme_pill"):
             return
         active = "sun" if self._theme_mode == "light" else "moon"
@@ -1274,6 +1583,8 @@ class Shell(QWidget):
                     "border-radius: 6px; border: none; }}")
             else:
                 btn.setStyleSheet("QFrame { background: transparent; border: none; border-radius: 6px; }")
+        # También actualizar el header
+        self._refresh_header_theme_btn()
 
     def _refresh_sidebar_static(self) -> None:
         if not hasattr(self, "_sidebar") or self._sidebar is None:
@@ -1313,6 +1624,26 @@ class Shell(QWidget):
                 f"QLineEdit {{ border: none; background: transparent; color: {Theme.text()}; "
                 f"font-size: 12px; }}"
                 f"QLineEdit::placeholder {{ color: {Theme.text_muted()}; }}")
+        # Header theme button
+        if hasattr(self, "_header_theme_icon"):
+            self._header_theme_icon.set_color(Theme.text_secondary())
+        if hasattr(self, "_header_theme_btn"):
+            self._header_theme_btn.setStyleSheet(
+                f"QFrame#headerThemeBtn {{ border-radius: 18px; background: transparent; border: none; }}"
+                f" QFrame#headerThemeBtn:hover {{ background: {Theme.hover_bg()}; }}"
+            )
+        if hasattr(self, "_header_globe_icon") and self._header_globe_icon is not None:
+            self._header_globe_icon.set_color(Theme.text_secondary())
+        if hasattr(self, "_lang_label"):
+            self._lang_label.setStyleSheet(
+                f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        if hasattr(self, "_lang_btn"):
+            self._lang_btn.setStyleSheet(
+                f"QFrame#langBtn {{ border-radius: 8px; background: transparent;"
+                f" border: 1px solid {Theme.border()}; }}"
+                f" QFrame#langBtn:hover {{ border-color: {ACCENT};"
+                f" background: {Theme.hover_bg()}; }}"
+            )
         self._refresh_sidebar_static()
         if hasattr(self, "_access_denied_label"):
             self._access_denied_label.setStyleSheet(
@@ -1323,6 +1654,64 @@ class Shell(QWidget):
         for key, page in self._pages.items():
             if hasattr(page, "refresh_style"):
                 page.refresh_style()
+        
+        self._setup_system_tray()
+
+    def _setup_system_tray(self) -> None:
+        """Configura el ícono en la bandeja del sistema (System Tray)."""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+            
+        from PySide6.QtGui import QIcon, QAction
+        
+        self._tray_icon = QSystemTrayIcon(self)
+        # Generate an icon from the existing Theme logic or Icon utility
+        tray_pixmap = Icon("hexagon").get_pixmap()
+        self._tray_icon.setIcon(QIcon(tray_pixmap))
+        self._tray_icon.setToolTip("NEXA Productivity Hub")
+        
+        tray_menu = QMenu(self)
+        
+        open_action = QAction("Abrir NEXA", self)
+        open_action.triggered.connect(self.showNormal)
+        open_action.triggered.connect(self.activateWindow)
+        tray_menu.addAction(open_action)
+        
+        tray_menu.addSeparator()
+        
+        quit_action = QAction("Salir Completamente", self)
+        quit_action.triggered.connect(self._force_quit)
+        tray_menu.addAction(quit_action)
+        
+        self._tray_icon.setContextMenu(tray_menu)
+        
+        # Double click to restore
+        def tray_activated(reason):
+            if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+                self.showNormal()
+                self.activateWindow()
+                
+        self._tray_icon.activated.connect(tray_activated)
+        self._tray_icon.show()
+        
+    def _force_quit(self) -> None:
+        """Cierra la aplicación ignorando el closeEvent."""
+        from PySide6.QtWidgets import QApplication
+        QApplication.quit()
+        
+    def closeEvent(self, event) -> None:
+        """Sobreescribe el cierre para minimizar al System Tray si está habilitado."""
+        if hasattr(self, "_tray_icon") and self._tray_icon.isVisible():
+            event.ignore()
+            self.hide()
+            self._tray_icon.showMessage(
+                "NEXA sigue activo",
+                "La aplicación se está ejecutando en segundo plano.",
+                QSystemTrayIcon.MessageIcon.Information,
+                2000
+            )
+        else:
+            super().closeEvent(event)
 
     # ------------------------------------------------------------------
     # Login / Logout
@@ -1335,12 +1724,14 @@ class Shell(QWidget):
 
     def _on_logout(self) -> None:
         reply = QMessageBox.question(
-            self, "Cerrar sesión",
-            "¿Está seguro que desea cerrar sesión?",
+            self, tr("action.logout_title"),
+            tr("action.logout_confirm"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
+            if hasattr(self, "_tray_icon"):
+                self._tray_icon.hide()
             token = self._current_user.get("token", "") if self._current_user else ""
             if token:
                 self._svc.auth.logout(token)

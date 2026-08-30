@@ -5,11 +5,9 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -19,6 +17,7 @@ from PySide6.QtWidgets import (
     QSplitter,
 )
 
+from hub.i18n import tr
 from hub.ui.common.design import (
     Theme,
     NEXAStyles,
@@ -38,7 +37,7 @@ _REPORT_STATUS = {
 
 _REPORT_TYPE = {
     "general": "General",
-    "automatico": "Autom\u00e1tico",
+    "automatico": "Automático",
     "semanal": "Semanal",
     "mensual": "Mensual",
 }
@@ -52,6 +51,7 @@ class ReportsCenterView(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._kpi_labels: dict[str, QLabel] = {}
+        self._kpi_cards: list[QFrame] = []
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -60,27 +60,28 @@ class ReportsCenterView(QWidget):
         main_layout.setSpacing(16)
 
         header_row = QHBoxLayout()
-        header_icon = Icon("chart", 20)
-        header_icon.set_color(ACCENT)
-        header_row.addWidget(header_icon)
-        header = QLabel("Centro de Reportes")
-        header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(
+        self._header_icon = Icon("bar-chart", 20)
+        self._header_icon.set_color(ACCENT)
+        header_row.addWidget(self._header_icon)
+        self._header = QLabel(tr("reports.title"))
+        self._header.setFont(get_font(20, bold=True))
+        self._header.setStyleSheet(
             f"color: {Theme.text()}; background: transparent; border: none;"
         )
-        header_row.addWidget(header, stretch=1)
+        header_row.addWidget(self._header, stretch=1)
         main_layout.addLayout(header_row)
 
         kpi_row = QHBoxLayout()
         kpi_row.setSpacing(12)
         kpi_defs = [
-            ("total", "chart", "Total Reportes", ACCENT),
+            ("total", "bar-chart", "Total Reportes", ACCENT),
             ("today", "clock", "Hoy", "#1565C0"),
             ("successful", "check", "Exitosos", SUCCESS),
-            ("errors", "close", "Con Error", ERROR),
+            ("errors", "alert-circle", "Con Error", ERROR),
         ]
         for key, icon, title, color in kpi_defs:
             card = self._build_kpi(icon, title, "0", color)
+            self._kpi_cards.append(card)
             kpi_row.addWidget(card)
             self._kpi_labels[key] = card.findChild(QLabel, "kpi_val")
         main_layout.addLayout(kpi_row)
@@ -88,44 +89,49 @@ class ReportsCenterView(QWidget):
         filter_row = QHBoxLayout()
         filter_row.setSpacing(8)
 
-        filter_row.addWidget(self._label_filtro("Herramienta:"))
+        self._lbl_tool = self._label_filtro("Herramienta:")
+        filter_row.addWidget(self._lbl_tool)
         self._plugin_combo = QComboBox()
         self._plugin_combo.setStyleSheet(NEXAStyles.combo_box())
         self._plugin_combo.setFixedWidth(160)
         self._plugin_combo.addItem("Todas")
         filter_row.addWidget(self._plugin_combo)
 
-        filter_row.addWidget(self._label_filtro("Usuario:"))
+        self._lbl_user = self._label_filtro(tr("audit.user") + ":")
+        filter_row.addWidget(self._lbl_user)
         self._user_combo = QComboBox()
         self._user_combo.setStyleSheet(NEXAStyles.combo_box())
         self._user_combo.setFixedWidth(140)
         self._user_combo.addItem("Todos")
         filter_row.addWidget(self._user_combo)
 
-        filter_row.addWidget(self._label_filtro("Estado:"))
+        self._lbl_status = self._label_filtro(tr("users.status") + ":")
+        filter_row.addWidget(self._lbl_status)
         self._status_combo = QComboBox()
         self._status_combo.setStyleSheet(NEXAStyles.combo_box())
         self._status_combo.setFixedWidth(120)
         self._status_combo.addItems(["Todos", "Exitoso", "Error", "Pendiente"])
         filter_row.addWidget(self._status_combo)
 
-        filter_row.addWidget(self._label_filtro("Tipo:"))
+        self._lbl_type = self._label_filtro("Tipo:")
+        filter_row.addWidget(self._lbl_type)
         self._type_combo = QComboBox()
         self._type_combo.setStyleSheet(NEXAStyles.combo_box())
         self._type_combo.setFixedWidth(120)
-        self._type_combo.addItems(["Todos", "General", "Autom\u00e1tico", "Semanal", "Mensual"])
+        self._type_combo.addItems(["Todos", "General", "Automático", "Semanal", "Mensual"])
         filter_row.addWidget(self._type_combo)
 
         filter_row.addStretch()
 
-        new_btn = QPushButton("+ Nuevo Reporte")
-        new_btn.setStyleSheet(NEXAStyles.primary_button())
-        new_btn.setFixedWidth(150)
-        filter_row.addWidget(new_btn)
+        self._new_btn = QPushButton("+ Nuevo Reporte")
+        self._new_btn.setStyleSheet(NEXAStyles.primary_button())
+        self._new_btn.setFixedWidth(150)
+        filter_row.addWidget(self._new_btn)
 
         main_layout.addLayout(filter_row)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setStyleSheet("QSplitter::handle { background-color: transparent; }")
 
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
@@ -142,8 +148,8 @@ class ReportsCenterView(QWidget):
         self._table = QTableWidget()
         self._table.setColumnCount(8)
         self._table.setHorizontalHeaderLabels([
-            "ID", "Nombre", "Herramienta", "Usuario", "Fecha",
-            "Estado", "Tipo", "Registros",
+            "ID", tr("users.name"), "Herramienta", tr("audit.user"), tr("audit.date"),
+            tr("users.status"), "Tipo", "Registros",
         ])
         hdr = self._table.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -169,12 +175,12 @@ class ReportsCenterView(QWidget):
         detail_layout.setSpacing(8)
 
         detail_header_row = QHBoxLayout()
-        detail_title = QLabel("Detalle del Reporte")
-        detail_title.setFont(get_font(14, bold=True))
-        detail_title.setStyleSheet(
+        self._detail_title = QLabel("Detalle del Reporte")
+        self._detail_title.setFont(get_font(14, bold=True))
+        self._detail_title.setStyleSheet(
             f"color: {Theme.text()}; background: transparent; border: none;"
         )
-        detail_header_row.addWidget(detail_title)
+        detail_header_row.addWidget(self._detail_title)
         detail_header_row.addStretch()
         detail_layout.addLayout(detail_header_row)
 
@@ -185,13 +191,14 @@ class ReportsCenterView(QWidget):
         detail_inner.setContentsMargins(NEXAStyles.PADDING_CARD, 14, NEXAStyles.PADDING_CARD, 14)
 
         self._detail_labels: dict[str, QLabel] = {}
+        self._detail_lbl_widgets: list[QLabel] = []
         detail_fields = [
             ("id", "ID:"),
-            ("name", "Nombre:"),
+            ("name", tr("users.name") + ":"),
             ("plugin", "Herramienta:"),
-            ("user", "Usuario:"),
-            ("date", "Fecha:"),
-            ("status", "Estado:"),
+            ("user", tr("audit.user") + ":"),
+            ("date", tr("audit.date") + ":"),
+            ("status", tr("users.status") + ":"),
             ("type", "Tipo:"),
             ("records", "Registros:"),
         ]
@@ -203,6 +210,7 @@ class ReportsCenterView(QWidget):
                 f"color: {Theme.text_secondary()}; background: transparent; border: none;"
             )
             lbl.setFixedWidth(100)
+            self._detail_lbl_widgets.append(lbl)
             row.addWidget(lbl)
             val = QLabel("-")
             val.setFont(get_font(11))
@@ -219,6 +227,49 @@ class ReportsCenterView(QWidget):
         splitter.setSizes([500, 250])
         main_layout.addWidget(splitter, stretch=1)
 
+    def refresh_style(self) -> None:
+        self.setStyleSheet(f"QWidget {{ background-color: {Theme.bg()}; }}")
+        self._header.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        self._header.setText(tr("reports.title"))
+        self._stats_label.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        
+        # Filtros
+        for lbl in [self._lbl_tool, self._lbl_user, self._lbl_status, self._lbl_type]:
+            lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        for combo in [self._plugin_combo, self._user_combo, self._status_combo, self._type_combo]:
+            combo.setStyleSheet(NEXAStyles.combo_box())
+        self._new_btn.setStyleSheet(NEXAStyles.primary_button())
+        
+        # Tabla
+        self._table.setStyleSheet(NEXAStyles.table())
+        self._table.setHorizontalHeaderLabels([
+            "ID", tr("users.name"), "Herramienta", tr("audit.user"), tr("audit.date"),
+            tr("users.status"), "Tipo", "Registros",
+        ])
+
+        # Detalle
+        self._detail_title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        self._detail_frame.setStyleSheet(NEXAStyles.card())
+        for lbl in self._detail_lbl_widgets:
+            lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        for val in self._detail_labels.values():
+            val.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+
+        # KPIs
+        for card in self._kpi_cards:
+            color = card.property("kpi_color")
+            if color:
+                card.setStyleSheet(
+                    f"background-color: {Theme.card()};"
+                    f" border: 1px solid {Theme.border()};"
+                    f" border-left: 4px solid {color};"
+                    f" border-radius: 10px;"
+                    f" padding: 16px;"
+                )
+                title = card.findChild(QLabel, "kpi_title")
+                if title:
+                    title.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+
     def _label_filtro(self, text: str) -> QLabel:
         lbl = QLabel(text)
         lbl.setFont(get_font(11))
@@ -229,6 +280,7 @@ class ReportsCenterView(QWidget):
 
     def _build_kpi(self, icon: str, title: str, value: str, color: str) -> QFrame:
         card = QFrame()
+        card.setProperty("kpi_color", color)
         card.setStyleSheet(
             f"background-color: {Theme.card()};"
             f" border: 1px solid {Theme.border()};"
@@ -254,6 +306,7 @@ class ReportsCenterView(QWidget):
         layout.addWidget(val_lbl)
 
         title_lbl = QLabel(title)
+        title_lbl.setObjectName("kpi_title")
         title_lbl.setFont(get_font(11))
         title_lbl.setStyleSheet(
             f"color: {Theme.text_secondary()}; background: transparent; border: none;"

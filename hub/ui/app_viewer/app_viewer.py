@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.core.plugin_registry import PluginRegistry
+from hub.core.dependency_manager import MissingDependenciesError
 from hub.models.plugin import PluginDescriptor
 from hub.ui.common.design import (
     Theme,
@@ -144,6 +145,14 @@ class AppViewer(QWidget):
             f"QPushButton:hover {{ border-color: {ACCENT}; }}")
         self._back_btn.clicked.connect(lambda: self.back_clicked.emit())
         row.addWidget(self._back_btn)
+
+        self._logo_container = QFrame()
+        self._logo_container.setFixedSize(56, 56)
+        self._logo_container.setStyleSheet(f"background-color: {ACCENT}15; border-radius: 14px; border: none;")
+        self._logo_layout = QVBoxLayout(self._logo_container)
+        self._logo_layout.setContentsMargins(0, 0, 0, 0)
+        self._logo_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        row.addWidget(self._logo_container)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(0)
@@ -437,6 +446,31 @@ class AppViewer(QWidget):
         self._description.setText(desc.description or "")
         self._version_label.setText(f"v{desc.version}")
         self._owner_label.setText(f"Responsable: {desc.owner}")
+
+        # Configurar Icono/Logo
+        while self._logo_layout.count():
+            item = self._logo_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+                
+        if desc.logo:
+            from PySide6.QtGui import QPixmap
+            pm = QPixmap(desc.logo)
+            if not pm.isNull():
+                pm = pm.scaled(36, 36, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                logo_lbl = QLabel()
+                logo_lbl.setPixmap(pm)
+                logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                logo_lbl.setStyleSheet("background: transparent; border: none;")
+                self._logo_layout.addWidget(logo_lbl, 0, Qt.AlignmentFlag.AlignCenter)
+            else:
+                icon_lbl = Icon(desc.icon or "package", 28)
+                icon_lbl.set_color(ACCENT)
+                self._logo_layout.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignCenter)
+        else:
+            icon_lbl = Icon(desc.icon or "package", 28)
+            icon_lbl.set_color(ACCENT)
+            self._logo_layout.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignCenter)
         
         self._kpi_status.set_value(desc.status.value.capitalize())
         self._kpi_version.set_value(desc.version)
@@ -534,6 +568,29 @@ class AppViewer(QWidget):
                 info.setStyleSheet(f"color: {Theme.text_secondary()}; padding: 20px;")
                 info.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self._plugin_layout.addWidget(info)
+        except MissingDependenciesError as e:
+            from PySide6.QtWidgets import QMessageBox, QApplication
+            from hub.core.dependency_manager import DependencyManager
+            
+            reply = QMessageBox.question(self, "Dependencias Faltantes",
+                f"El plugin requiere instalar las siguientes librerías:\n\n{', '.join(e.missing_packages)}.\n\n"
+                "¿Deseas descargarlas e instalarlas automáticamente ahora?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                
+            if reply == QMessageBox.StandardButton.Yes:
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                try:
+                    success = DependencyManager.install_dependencies(e.missing_packages)
+                finally:
+                    QApplication.restoreOverrideCursor()
+                    
+                if success:
+                    # Reintentar cargar después de instalar
+                    self._load_plugin_widget(desc)
+                else:
+                    self._show_error("Fallo la instalación de las dependencias. Revisa los registros.")
+            else:
+                self._show_error("Instalación cancelada. El plugin no puede abrirse sin sus dependencias.")
         except Exception as e:
             info = QLabel(f"No se pudo cargar el módulo: {e}")
             info.setFont(get_font(12))

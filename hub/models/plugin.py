@@ -43,6 +43,7 @@ class PluginDescriptor:
     status: PluginStatus = PluginStatus.OFFICIAL
     entrypoint: str = ""
     icon: str = ""
+    logo: str = ""
     permissions: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
     documentation_url: str = ""
@@ -122,6 +123,7 @@ class PluginDescriptor:
             "status": self.status.value,
             "entrypoint": self.entrypoint,
             "icon": self.icon,
+            "logo": self.logo,
             "permissions": self.permissions,
             "dependencies": self.dependencies,
             "documentation_url": self.documentation_url,

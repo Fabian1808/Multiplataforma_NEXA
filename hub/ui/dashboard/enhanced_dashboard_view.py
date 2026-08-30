@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QVBoxLayout, QWidget,
 )
 
+from hub.i18n import tr
 from hub.ui.common.design import (
     Theme,
     NEXAStyles,
@@ -25,31 +26,30 @@ class KPICard(QFrame):
     def __init__(self, title: str, value: str = "0", icon: str = "",
                  color: str = ACCENT, parent=None):
         super().__init__(parent)
+        self._color = color
+        self._icon_name = icon
+        self._title_text = title
         self.setObjectName("card")
-        self.setStyleSheet(f"""
-            QFrame#card {{
-                background-color: {Theme.surface()};
-                border: 1px solid {Theme.border()};
-                border-left: 4px solid {color};
-                border-radius: 10px;
-                padding: 16px;
-            }}
-        """)
+        self._setup_layout(value)
+        self.refresh_style()
+
+    def _setup_layout(self, value: str) -> None:
         layout = QVBoxLayout(self)
         layout.setSpacing(4)
+        layout.setContentsMargins(16, 14, 16, 14)
         top = QHBoxLayout()
-        if icon:
-            ico = Icon(icon, 20)
-            ico.set_color(color)
-            ico.setStyleSheet("background: transparent; border: none;")
-            top.addWidget(ico)
+        if self._icon_name:
+            self._ico = Icon(self._icon_name, 20)
+            self._ico.set_color(self._color)
+            self._ico.setStyleSheet("background: transparent; border: none;")
+            top.addWidget(self._ico)
         top.addStretch()
         layout.addLayout(top)
         self._value = QLabel(value)
         self._value.setFont(get_font(28, bold=True))
-        self._value.setStyleSheet(f"color: {color}; background: transparent; border: none;")
+        self._value.setStyleSheet(f"color: {self._color}; background: transparent; border: none;")
         layout.addWidget(self._value)
-        self._title = QLabel(title)
+        self._title = QLabel(self._title_text)
         self._title.setFont(get_font(11))
         self._title.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
         layout.addWidget(self._title)
@@ -57,12 +57,25 @@ class KPICard(QFrame):
     def set_value(self, value: str) -> None:
         self._value.setText(value)
 
+    def refresh_style(self) -> None:
+        self.setStyleSheet(f"""
+            QFrame#card {{
+                background-color: {Theme.card()};
+                border: 1px solid {Theme.border()};
+                border-left: 4px solid {self._color};
+                border-radius: 12px;
+            }}
+        """)
+        self._title.setStyleSheet(
+            f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+
 
 class _SectionCard(QFrame):
     def __init__(self, title: str, icon: str = "", parent=None):
         super().__init__(parent)
+        self._title_text = title
+        self._icon_name = icon
         self.setObjectName("card")
-        self.setStyleSheet(NEXAStyles.card_no_hover())
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
         layout.setContentsMargins(18, 14, 18, 14)
@@ -72,25 +85,30 @@ class _SectionCard(QFrame):
             ico.set_color(ACCENT)
             ico.setStyleSheet("background: transparent; border: none;")
             header.addWidget(ico)
-        lbl = QLabel(title)
-        lbl.setFont(get_font(13, bold=True))
-        lbl.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
-        header.addWidget(lbl)
+        self._header_lbl = QLabel(title)
+        self._header_lbl.setFont(get_font(13, bold=True))
+        self._header_lbl.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        header.addWidget(self._header_lbl)
         header.addStretch()
         layout.addLayout(header)
         self._body = QVBoxLayout()
         self._body.setSpacing(4)
         layout.addLayout(self._body)
-        self._placeholder = QLabel("Sin datos disponibles")
+        self._placeholder = QLabel(tr("dashboard.no_data"))
         self._placeholder.setFont(get_font(11, italic=True))
         self._placeholder.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
         self._body.addWidget(self._placeholder)
+        self.refresh_style()
 
     def clear_body(self) -> None:
         while self._body.count():
             item = self._body.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget()
+            if widget:
+                if widget == self._placeholder:
+                    widget.setParent(None)
+                else:
+                    widget.deleteLater()
 
     def _set_placeholder(self, visible: bool = True) -> None:
         if visible:
@@ -99,6 +117,16 @@ class _SectionCard(QFrame):
             self._placeholder.setVisible(True)
         else:
             self._placeholder.setVisible(False)
+
+    def refresh_style(self) -> None:
+        self.setStyleSheet(
+            f"QFrame#card {{ background-color: {Theme.card()};"
+            f" border: 1px solid {Theme.border()}; border-radius: 12px; }}"
+        )
+        self._header_lbl.setStyleSheet(
+            f"color: {Theme.text()}; background: transparent; border: none;")
+        self._placeholder.setStyleSheet(
+            f"color: {Theme.text_muted()}; background: transparent; border: none;")
 
 
 class EnhancedDashboardView(QWidget):
@@ -120,34 +148,34 @@ class EnhancedDashboardView(QWidget):
         scroll.setStyleSheet(NEXAStyles.scroll_area())
         outer.addWidget(scroll)
 
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
-        scroll.setWidget(container)
+        self._container = QWidget()
+        layout = QVBoxLayout(self._container)
+        layout.setContentsMargins(28, 28, 28, 28)
+        layout.setSpacing(18)
+        scroll.setWidget(self._container)
 
-        greeting = QLabel(f"Bienvenido, {self._user_name}")
-        greeting.setFont(get_font(20, bold=True))
-        greeting.setStyleSheet(f"color: {Theme.text()}; background: transparent;")
-        layout.addWidget(greeting)
+        self._greeting = QLabel(f"{tr('dashboard.welcome')}, {self._user_name}")
+        self._greeting.setFont(get_font(22, bold=True))
+        self._greeting.setStyleSheet(f"color: {Theme.text()}; background: transparent;")
+        layout.addWidget(self._greeting)
 
-        subtitle = QLabel("Resumen de la plataforma NEXA Productivity Hub")
-        subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent;")
-        layout.addWidget(subtitle)
+        self._subtitle = QLabel(tr("dashboard.subtitle"))
+        self._subtitle.setFont(get_font(12))
+        self._subtitle.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent;")
+        layout.addWidget(self._subtitle)
 
         self._kpi_grid = QGridLayout()
-        self._kpi_grid.setSpacing(12)
+        self._kpi_grid.setSpacing(14)
         self._kpis: dict[str, KPICard] = {}
         kpi_defs = [
-            ("executions", "Ejecuciones", "play", ACCENT),
-            ("tools", "Herramientas", "apps", INFO),
-            ("users", "Usuarios", "users", SUCCESS),
-            ("projects", "Proyectos", "folder", "#9C27B0"),
-            ("requests", "Solicitudes", "list", WARNING),
-            ("articles", "Conocimiento", "book", "#00897B"),
-            ("posts", "Publicaciones", "activity", "#5C6BC0"),
-            ("incidents", "Incidentes", "flag", ERROR),
+            ("executions", tr("kpi.executions"), "trending-up", ACCENT),
+            ("tools",      tr("kpi.tools"),      "grid",        INFO),
+            ("users",      tr("kpi.users"),       "users",       SUCCESS),
+            ("projects",   tr("kpi.projects"),    "folder",      "#9C27B0"),
+            ("requests",   tr("kpi.requests"),    "file-text",   WARNING),
+            ("articles",   tr("kpi.articles"),    "book-open",   "#00897B"),
+            ("posts",      tr("kpi.posts"),       "users-round", "#5C6BC0"),
+            ("incidents",  tr("kpi.incidents"),   "alert-circle",ERROR),
         ]
         for i, (key, title, icon, color) in enumerate(kpi_defs):
             card = KPICard(title, "0", icon, color)
@@ -155,17 +183,17 @@ class EnhancedDashboardView(QWidget):
             self._kpi_grid.addWidget(card, i // 4, i % 4)
         layout.addLayout(self._kpi_grid)
 
-        self._pending_card = KPICard("Pendientes", "0", "clock", WARNING)
-        self._kpis["pending"] = self._pending_card  # registrar para update_kpi()
+        self._pending_card = KPICard(tr("kpi.pending"), "0", "clock", WARNING)
+        self._kpis["pending"] = self._pending_card
         self._kpi_grid.addWidget(self._pending_card, 2, 0)
 
         middle = QHBoxLayout()
         middle.setSpacing(16)
 
-        self._favorites_section = _SectionCard("Mis aplicaciones favoritas", "star")
+        self._favorites_section = _SectionCard(tr("dashboard.favorites"), "star")
         middle.addWidget(self._favorites_section, stretch=1)
 
-        self._health_section = _SectionCard("Solicitudes e Incidencias pendientes", "alert-triangle")
+        self._health_section = _SectionCard(tr("dashboard.pending_requests"), "alert-triangle")
         middle.addWidget(self._health_section, stretch=1)
 
         layout.addLayout(middle)
@@ -173,10 +201,10 @@ class EnhancedDashboardView(QWidget):
         bottom = QHBoxLayout()
         bottom.setSpacing(16)
 
-        self._activity_section = _SectionCard("Actualizaciones y Mejoras recientes", "activity")
+        self._activity_section = _SectionCard(tr("dashboard.recent_activity"), "activity")
         bottom.addWidget(self._activity_section, stretch=1)
 
-        self._tools_section = _SectionCard("Aplicaciones recientemente utilizadas", "clock")
+        self._tools_section = _SectionCard(tr("dashboard.recent_tools"), "clock")
         bottom.addWidget(self._tools_section, stretch=1)
 
         layout.addLayout(bottom, stretch=1)
@@ -193,7 +221,7 @@ class EnhancedDashboardView(QWidget):
         self._activity_section._set_placeholder(False)
         for item in items[:8]:
             row = QHBoxLayout()
-            icon = QLabel(item.get("icon", "\u25cf"))
+            icon = QLabel(item.get("icon", "●"))
             icon.setFont(get_font(12))
             icon.setStyleSheet(f"color: {item.get('color', ACCENT)}; background: transparent; border: none;")
             row.addWidget(icon)
@@ -221,7 +249,8 @@ class EnhancedDashboardView(QWidget):
             name.setFont(get_font(11, bold=True))
             name.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
             row.addWidget(name, stretch=1)
-            count = QLabel(f"{tool.get('executions', 0)} ejecuciones")
+            label = tr("kpi.executions_count").format(n=tool.get("executions", 0))
+            count = QLabel(label)
             count.setFont(get_font(10))
             count.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
             row.addWidget(count)
@@ -259,15 +288,15 @@ class EnhancedDashboardView(QWidget):
             self._health_section._set_placeholder(True)
             return
         self._health_section._set_placeholder(False)
-        active = stats.get("active", 0)
-        paused = stats.get("paused", 0)
+        active   = stats.get("active", 0)
+        paused   = stats.get("paused", 0)
         problems = stats.get("problems", 0)
-        total = active + paused + problems
+        total    = active + paused + problems
         indicators = [
-            ("\u25cf", SUCCESS, f"{active} activas"),
-            ("\u25cf", WARNING, f"{paused} en pausa"),
-            ("\u25cf", ERROR, f"{problems} con problemas"),
-            ("\u25cf", Theme.text_muted(), f"{total} en total"),
+            ("●", SUCCESS, tr("health.active").format(n=active)),
+            ("●", WARNING, tr("health.paused").format(n=paused)),
+            ("●", ERROR,   tr("health.problems").format(n=problems)),
+            ("●", Theme.text_muted(), tr("health.total").format(n=total)),
         ]
         for icon_char, color, text in indicators:
             row = QHBoxLayout()
@@ -285,3 +314,15 @@ class EnhancedDashboardView(QWidget):
 
     def set_pending_requests(self, count: int) -> None:
         self._pending_card.set_value(str(count))
+
+    def refresh_style(self) -> None:
+        """Llamado por apply_theme() para respetar el modo activo."""
+        self._container.setStyleSheet(
+            f"QWidget {{ background-color: {Theme.bg()}; }}")
+        self._greeting.setStyleSheet(f"color: {Theme.text()}; background: transparent;")
+        self._subtitle.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent;")
+        for card in self._kpis.values():
+            card.refresh_style()
+        for sec in (self._favorites_section, self._health_section,
+                    self._activity_section, self._tools_section):
+            sec.refresh_style()

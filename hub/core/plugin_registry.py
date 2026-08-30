@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from hub.models.plugin import PluginCategory, PluginDescriptor, PluginStatus
+from hub.core.dependency_manager import DependencyManager, MissingDependenciesError
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,27 @@ class PluginRegistry:
     """Registra y gestiona plugins del Hub."""
 
     def __init__(self, base_dir: Path | None = None) -> None:
-        self._base_dir = base_dir or Path(__file__).resolve().parent.parent.parent
-        self._plugins_dir = self._base_dir / _PLUGINS_DIR_NAME
+        import sys
+        import os
+        import shutil
+        
+        if getattr(sys, 'frozen', False):
+            appdata = os.environ.get("APPDATA", str(Path.home()))
+            self._plugins_dir = Path(appdata) / "NEXA" / "ProductivityHub" / "plugins"
+            
+            bundled_plugins_dir = Path(sys._MEIPASS) / "plugins"
+            if bundled_plugins_dir.exists() and not self._plugins_dir.exists():
+                try:
+                    shutil.copytree(bundled_plugins_dir, self._plugins_dir)
+                    logger.info("Copied default plugins to %s", self._plugins_dir)
+                except Exception as e:
+                    logger.exception("Failed to copy bundled plugins: %s", e)
+                    
+            if not self._plugins_dir.exists():
+                self._plugins_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self._base_dir = base_dir or Path(__file__).resolve().parent.parent.parent
+            self._plugins_dir = self._base_dir / _PLUGINS_DIR_NAME
         self._descriptors: dict[str, PluginDescriptor] = {}
         self._factories: dict[str, PluginWidgetFactory] = {}
         self._loaded_modules: dict[str, Any] = {}
@@ -106,6 +126,12 @@ class PluginRegistry:
             status = PluginStatus(status_str)
         except ValueError:
             status = PluginStatus.OFFICIAL
+            
+        logo = data.get("logo", "")
+        if logo and not logo.startswith("http"):
+            # Resolve relative logo to absolute path inside plugin_dir
+            logo_path = plugin_dir / logo
+            logo = str(logo_path) if logo_path.exists() else ""
 
         return PluginDescriptor(
             id=data["id"],
@@ -120,6 +146,7 @@ class PluginRegistry:
             status=status,
             entrypoint=data.get("entrypoint", ""),
             icon=data.get("icon", ""),
+            logo=logo,
             permissions=data.get("permissions", []),
             dependencies=data.get("dependencies", []),
             documentation_url=data.get("documentation_url", ""),
@@ -142,7 +169,12 @@ class PluginRegistry:
         plugin_dir = self._plugins_dir / plugin_id
         entrypoint = desc.entrypoint or "main"
 
-        module_path = plugin_dir / f"{entrypoint}.py"
+        # Validar dependencias antes de intentar importar el módulo
+        missing = DependencyManager.get_missing_dependencies(desc.dependencies)
+        if missing:
+            raise MissingDependenciesError(missing, plugin_id)
+
+        module_path = plugin_dir / f"{entrypoint.replace('.', '/')}.py"
         if not module_path.exists():
             module_path = plugin_dir / entrypoint.replace(".", "/") / "__init__.py"
             if not module_path.exists():

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from hub.core.auth_service import AuthService
 from hub.core.audit_service import AuditService
+from hub.i18n import tr
 from hub.ui.common.design import (
     Theme,
     NEXAStyles,
@@ -49,6 +50,7 @@ class UserFormDialog(QDialog):
         self.setWindowTitle("Editar usuario" if self._is_edit else "Agregar usuario")
         self.setModal(True)
         self.setMinimumWidth(440)
+        self.setStyleSheet(f"QDialog {{ background-color: {Theme.bg()}; }}")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 24, 24, 24)
@@ -56,44 +58,49 @@ class UserFormDialog(QDialog):
 
         title = QLabel("Editar usuario" if self._is_edit else "Nuevo usuario")
         title.setFont(get_font(16, weight=700))
-        title.setStyleSheet(f"color: {Theme.text()};")
+        title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         root.addWidget(title)
 
         form = QFormLayout()
         form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
+        def make_lbl(text: str) -> QLabel:
+            lbl = QLabel(text)
+            lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+            return lbl
+
         self._name = QLineEdit()
         self._name.setStyleSheet(NEXAStyles.input())
         self._name.setPlaceholderText("Nombre completo")
-        form.addRow("Nombre:", self._name)
+        form.addRow(make_lbl("Nombre:"), self._name)
 
         self._username = QLineEdit()
         self._username.setStyleSheet(NEXAStyles.input())
         self._username.setPlaceholderText("usuario_acceso")
-        form.addRow("Usuario:", self._username)
+        form.addRow(make_lbl("Usuario:"), self._username)
 
         self._email = QLineEdit()
         self._email.setStyleSheet(NEXAStyles.input())
         self._email.setPlaceholderText("correo@nexa.com")
-        form.addRow("Correo:", self._email)
+        form.addRow(make_lbl("Correo:"), self._email)
 
         self._role = QComboBox()
         self._role.setStyleSheet(NEXAStyles.combo_box())
         for r in roles:
             self._role.addItem(_role_label(r), r)
-        form.addRow("Rol:", self._role)
+        form.addRow(make_lbl("Rol:"), self._role)
 
         self._area = QLineEdit()
         self._area.setStyleSheet(NEXAStyles.input())
         self._area.setPlaceholderText("Área / Departamento")
-        form.addRow("Área:", self._area)
+        form.addRow(make_lbl("Área:"), self._area)
 
         self._password = QLineEdit()
         self._password.setStyleSheet(NEXAStyles.input())
         self._password.setPlaceholderText("Contraseña inicial" if not self._is_edit else "Dejar vacío para no cambiar")
         self._password.setEchoMode(QLineEdit.EchoMode.Password)
-        form.addRow("Contraseña:", self._password)
+        form.addRow(make_lbl("Contraseña:"), self._password)
 
         self._password_confirm = QLineEdit()
         self._password_confirm.setStyleSheet(NEXAStyles.input())
@@ -101,7 +108,7 @@ class UserFormDialog(QDialog):
         self._password_confirm.setEchoMode(QLineEdit.EchoMode.Password)
         if self._is_edit:
             self._password_confirm.setVisible(False)
-        form.addRow("Confirmar:", self._password_confirm)
+        form.addRow(make_lbl("Confirmar:"), self._password_confirm)
 
         root.addLayout(form)
 
@@ -195,10 +202,10 @@ class UserManagementView(QWidget):
         header_icon = Icon("users", 18)
         header_icon.set_color(ACCENT)
         header_row.addWidget(header_icon)
-        header = QLabel("Gestión de Usuarios")
-        header.setFont(get_font(18, weight=700))
-        header.setStyleSheet(f"color: {Theme.text()};")
-        header_row.addWidget(header, stretch=1)
+        self._header = QLabel("Gestión de Usuarios")
+        self._header.setFont(get_font(18, weight=700))
+        self._header.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        header_row.addWidget(self._header, stretch=1)
 
         self._add_btn = QPushButton("  + Agregar usuario")
         self._add_btn.setStyleSheet(NEXAStyles.primary_button())
@@ -208,16 +215,16 @@ class UserManagementView(QWidget):
         layout.addLayout(header_row)
 
         # Explicación de Roles
-        roles_desc = QLabel(
+        self._roles_desc = QLabel(
             "<b>Permisos de Roles:</b><br>"
             "<b>• Administrador:</b> Control total de la plataforma.<br>"
             "<b>• Gestor:</b> Gestiona aplicaciones, aprobaciones de mejoras e incidencias.<br>"
             "<b>• Desarrollador:</b> Mantiene el código de las aplicaciones y actualiza la documentación.<br>"
             "<b>• Usuario:</b> Puede utilizar aplicaciones y generar solicitudes de mejora/incidencias."
         )
-        roles_desc.setFont(get_font(11))
-        roles_desc.setStyleSheet(f"color: {Theme.text_secondary()}; background-color: {Theme.input_bg()}; padding: 12px; border: 1px solid {Theme.border()}; border-radius: 8px;")
-        layout.addWidget(roles_desc)
+        self._roles_desc.setFont(get_font(11))
+        self._roles_desc.setStyleSheet(f"color: {Theme.text_secondary()}; background-color: {Theme.input_bg()}; padding: 12px; border: 1px solid {Theme.border()}; border-radius: 8px;")
+        layout.addWidget(self._roles_desc)
 
         # ---- Toolbar (búsqueda + filtros) ----
         toolbar = QHBoxLayout()
@@ -252,19 +259,19 @@ class UserManagementView(QWidget):
         stats_row.setSpacing(16)
         self._total_label = QLabel("Total: 0")
         self._total_label.setFont(get_font(12, weight=700))
-        self._total_label.setStyleSheet(f"color: {Theme.text()};")
+        self._total_label.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         stats_row.addWidget(self._total_label)
         self._admin_label = QLabel("Administradores: 0")
         self._admin_label.setFont(get_font(11))
-        self._admin_label.setStyleSheet(f"color: {ACCENT};")
+        self._admin_label.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
         stats_row.addWidget(self._admin_label)
         self._gestor_label = QLabel("Gestores: 0")
         self._gestor_label.setFont(get_font(11))
-        self._gestor_label.setStyleSheet(f"color: {WARNING};")
+        self._gestor_label.setStyleSheet(f"color: {WARNING}; background: transparent; border: none;")
         stats_row.addWidget(self._gestor_label)
         self._active_label = QLabel("Activos: 0")
         self._active_label.setFont(get_font(11))
-        self._active_label.setStyleSheet(f"color: {SUCCESS};")
+        self._active_label.setStyleSheet(f"color: {SUCCESS}; background: transparent; border: none;")
         stats_row.addWidget(self._active_label)
         stats_row.addStretch()
         layout.addLayout(stats_row)
@@ -274,17 +281,19 @@ class UserManagementView(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet(NEXAStyles.scroll_area())
-        content = QWidget()
-        content.setStyleSheet(f"background: {Theme.bg()};")
-        self._grid = QGridLayout(content)
+        self._content_widget = QWidget()
+        self._content_widget.setStyleSheet(f"background: transparent;")
+        self._grid = QGridLayout(self._content_widget)
         self._grid.setSpacing(12)
         self._grid.setContentsMargins(0, 0, 0, 0)
-        scroll.setWidget(content)
+        self._grid.setColumnStretch(0, 1)
+        self._grid.setColumnStretch(1, 1)
+        scroll.setWidget(self._content_widget)
         layout.addWidget(scroll, stretch=1)
 
         self._empty_label = QLabel("No hay usuarios registrados")
         self._empty_label.setFont(get_font(14))
-        self._empty_label.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px;")
+        self._empty_label.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px; background: transparent; border: none;")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def set_roles(self, roles: list[str]) -> None:
@@ -299,9 +308,24 @@ class UserManagementView(QWidget):
 
     def refresh_style(self) -> None:
         """Re-aplica el tema actual (claro/oscuro) re-renderizando."""
-        content = self._grid.parentWidget()
-        if content is not None:
-            content.setStyleSheet(f"background: {Theme.bg()};")
+        self.setStyleSheet(f"QWidget {{ background-color: {Theme.bg()}; }}")
+        self._header.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        self._roles_desc.setStyleSheet(f"color: {Theme.text_secondary()}; background-color: {Theme.input_bg()}; padding: 12px; border: 1px solid {Theme.border()}; border-radius: 8px;")
+        
+        self._add_btn.setStyleSheet(NEXAStyles.primary_button())
+        self._search.setStyleSheet(NEXAStyles.search_input())
+        self._role_filter.setStyleSheet(NEXAStyles.combo_box())
+        self._status_filter.setStyleSheet(NEXAStyles.combo_box())
+        
+        self._total_label.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+        self._admin_label.setStyleSheet(f"color: {ACCENT}; background: transparent; border: none;")
+        self._gestor_label.setStyleSheet(f"color: {WARNING}; background: transparent; border: none;")
+        self._active_label.setStyleSheet(f"color: {SUCCESS}; background: transparent; border: none;")
+        self._empty_label.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px; background: transparent; border: none;")
+
+        if self._content_widget:
+            self._content_widget.setStyleSheet(f"background: transparent;")
+            
         self._apply_filters()
 
     def set_users(self, users: list[dict]) -> None:
@@ -394,7 +418,7 @@ class UserManagementView(QWidget):
         info.setSpacing(1)
         name_lbl = QLabel(user.get("name", user.get("username", "")))
         name_lbl.setFont(get_font(13, weight=700))
-        name_lbl.setStyleSheet(f"color: {Theme.text() if is_active else Theme.text_muted()};")
+        name_lbl.setStyleSheet(f"color: {Theme.text() if is_active else Theme.text_muted()}; background: transparent; border: none;")
         name_lbl.setWordWrap(True)
         info.addWidget(name_lbl)
 
@@ -402,7 +426,7 @@ class UserManagementView(QWidget):
         role_text = ", ".join(_role_label(r) for r in roles) if roles else "Sin rol"
         role_lbl = QLabel(f"@{user.get('username', '')}  ·  {role_text}")
         role_lbl.setFont(get_font(10))
-        role_lbl.setStyleSheet(f"color: {Theme.text_secondary()};")
+        role_lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
         info.addWidget(role_lbl)
 
         meta = user.get("email", "")
@@ -410,7 +434,7 @@ class UserManagementView(QWidget):
             meta = f"{user.get('area')} · {meta}" if meta else user.get("area")
         meta_lbl = QLabel(meta or "—")
         meta_lbl.setFont(get_font(10))
-        meta_lbl.setStyleSheet(f"color: {Theme.text_muted()};")
+        meta_lbl.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
         meta_lbl.setWordWrap(True)
         info.addWidget(meta_lbl)
         top.addLayout(info, stretch=1)
@@ -577,6 +601,7 @@ class UserManagementView(QWidget):
             self._audit.log(self._current_user_id, "activate", "users", "user", user.get("id", ""), name, details)
         elif action == "reset_password":
             self._audit.log(self._current_user_id, "reset_password", "users", "user", user.get("id", ""), name, details)
+    
     def _reload(self) -> None:
         if self._auth is not None:
             users = self._auth.get_all_users(include_inactive=True)

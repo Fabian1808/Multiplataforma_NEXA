@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from hub.core.auth_service import AuthService
+from hub.i18n import tr
 from hub.ui.common.design import (
     Theme,
     NEXAStyles,
@@ -28,7 +29,7 @@ from hub.ui.common.design import (
     get_font
 )
 
-_MAX_ATTEMPTS = 5
+_MAX_ATTEMPTS    = 5
 _LOCKOUT_SECONDS = 60
 
 
@@ -36,19 +37,19 @@ class LoginView(QWidget):
     """Full-screen centered login form with rate-limiting."""
 
     login_success = Signal(dict)
-    login_failed = Signal(str)
+    login_failed  = Signal(str)
 
     def __init__(self, auth_service: AuthService, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._auth = auth_service
-        self._attempts = 0
+        self._attempts   = 0
         self._locked_until: float = 0.0
         self._password_visible = False
 
         self._build_ui()
         self._apply_styles()
 
-    # ── UI construction ────────────────────────────────────────────
+    # ── UI construction ─────────────────────────────────────────────
 
     def _build_ui(self) -> None:
         self.setObjectName("loginView")
@@ -60,6 +61,7 @@ class LoginView(QWidget):
         card = QFrame()
         card.setObjectName("loginCard")
         card.setFixedSize(420, 520)
+        self._card = card
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(40, 36, 40, 36)
         card_layout.setSpacing(0)
@@ -70,7 +72,7 @@ class LoginView(QWidget):
         shadow.setColor(QColor("#00000040"))
         card.setGraphicsEffect(shadow)
 
-        # ── Logo ──────────────────────────────────────────────
+        # ── Logo ───────────────────────────────────────────────
         logo_row = QHBoxLayout()
         logo_row.setSpacing(12)
         logo_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -84,35 +86,36 @@ class LoginView(QWidget):
         logo_row.addWidget(logo)
         card_layout.addLayout(logo_row)
 
-        subtitle = QLabel("Productivity Hub")
-        subtitle.setFont(get_font(13))
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none; margin-bottom: 4px;")
-        card_layout.addWidget(subtitle)
+        self._subtitle_lbl = QLabel(tr("login.subtitle"))
+        self._subtitle_lbl.setFont(get_font(13))
+        self._subtitle_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._subtitle_lbl.setStyleSheet(
+            f"color: {Theme.text_secondary()}; background: transparent; border: none; margin-bottom: 4px;")
+        card_layout.addWidget(self._subtitle_lbl)
 
         card_layout.addSpacing(32)
 
-        # ── Username field ────────────────────────────────────
-        user_label = QLabel("Usuario")
-        user_label.setFont(get_font(11, bold=True))
-        user_label.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
-        card_layout.addWidget(user_label)
-
+        # ── Username field ──────────────────────────────────────
+        self._user_label = QLabel(tr("login.user_label"))
+        self._user_label.setFont(get_font(11, bold=True))
+        self._user_label.setStyleSheet(
+            f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        card_layout.addWidget(self._user_label)
         card_layout.addSpacing(6)
 
         self._username_input = QLineEdit()
-        self._username_input.setPlaceholderText("Ingresa tu usuario")
+        self._username_input.setPlaceholderText(tr("login.user_placeholder"))
         self._username_input.setFixedHeight(44)
         card_layout.addWidget(self._username_input)
 
         card_layout.addSpacing(18)
 
-        # ── Password field ────────────────────────────────────
-        pass_label = QLabel("Contraseña")
-        pass_label.setFont(get_font(11, bold=True))
-        pass_label.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
-        card_layout.addWidget(pass_label)
-
+        # ── Password field ──────────────────────────────────────
+        self._pass_label = QLabel(tr("login.pass_label"))
+        self._pass_label.setFont(get_font(11, bold=True))
+        self._pass_label.setStyleSheet(
+            f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        card_layout.addWidget(self._pass_label)
         card_layout.addSpacing(6)
 
         pass_row = QHBoxLayout()
@@ -121,8 +124,9 @@ class LoginView(QWidget):
 
         self._password_input = QLineEdit()
         self._password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._password_input.setPlaceholderText("Ingresa tu contraseña")
+        self._password_input.setPlaceholderText(tr("login.pass_placeholder"))
         self._password_input.setFixedHeight(44)
+        self._password_input.returnPressed.connect(self._on_login)
         pass_row.addWidget(self._password_input)
 
         self._toggle_btn = QPushButton()
@@ -138,10 +142,9 @@ class LoginView(QWidget):
         pass_row.addWidget(self._toggle_btn)
 
         card_layout.addLayout(pass_row)
-
         card_layout.addSpacing(8)
 
-        # ── Error label ───────────────────────────────────────
+        # ── Error label ─────────────────────────────────────────
         self._error_label = QLabel("")
         self._error_label.setFont(get_font(11))
         self._error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -155,8 +158,8 @@ class LoginView(QWidget):
 
         card_layout.addSpacing(16)
 
-        # ── Login button ──────────────────────────────────────
-        self._login_btn = QPushButton("Iniciar Sesión")
+        # ── Login button ────────────────────────────────────────
+        self._login_btn = QPushButton(tr("login.btn"))
         self._login_btn.setFixedHeight(46)
         self._login_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._login_btn.clicked.connect(self._on_login)
@@ -164,12 +167,13 @@ class LoginView(QWidget):
 
         card_layout.addStretch()
 
-        # ── Footer ────────────────────────────────────────────
-        footer = QLabel("NEXA \u00a9 2026 \u00b7 Productivity Hub")
-        footer.setFont(get_font(9))
-        footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        footer.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
-        card_layout.addWidget(footer)
+        # ── Footer ──────────────────────────────────────────────
+        self._footer_lbl = QLabel(tr("login.footer"))
+        self._footer_lbl.setFont(get_font(9))
+        self._footer_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._footer_lbl.setStyleSheet(
+            f"color: {Theme.text_muted()}; background: transparent; border: none;")
+        card_layout.addWidget(self._footer_lbl)
 
         outer.addWidget(card, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -204,7 +208,28 @@ class LoginView(QWidget):
         self._login_btn.setStyleSheet(NEXAStyles.primary_button())
         self._login_btn.setObjectName("")
 
-    # ── Actions ────────────────────────────────────────────────────
+    def refresh_style(self) -> None:
+        """Actualiza estilos cuando cambia el tema o el idioma."""
+        self._apply_styles()
+        # Actualizar textos con i18n
+        self._subtitle_lbl.setText(tr("login.subtitle"))
+        self._user_label.setText(tr("login.user_label"))
+        self._username_input.setPlaceholderText(tr("login.user_placeholder"))
+        self._pass_label.setText(tr("login.pass_label"))
+        self._password_input.setPlaceholderText(tr("login.pass_placeholder"))
+        self._login_btn.setText(tr("login.btn"))
+        self._footer_lbl.setText(tr("login.footer"))
+        # Labels con colores de tema
+        for lbl in [self._user_label, self._pass_label]:
+            lbl.setStyleSheet(
+                f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+        self._subtitle_lbl.setStyleSheet(
+            f"color: {Theme.text_secondary()}; background: transparent; border: none; margin-bottom: 4px;")
+        self._footer_lbl.setStyleSheet(
+            f"color: {Theme.text_muted()}; background: transparent; border: none;")
+        self._toggle_icon.set_color(Theme.text_secondary())
+
+    # ── Actions ─────────────────────────────────────────────────────
 
     def _toggle_password(self) -> None:
         self._password_visible = not self._password_visible
@@ -228,16 +253,14 @@ class LoginView(QWidget):
 
         if time.time() < self._locked_until:
             remaining = int(self._locked_until - time.time())
-            self._show_error(
-                f"Demasiados intentos. Intenta de nuevo en {remaining}s."
-            )
+            self._show_error(tr("login.too_many").format(n=remaining))
             return
 
         username = self._username_input.text().strip()
         password = self._password_input.text()
 
         if not username or not password:
-            self._show_error("Ingresa usuario y contraseña.")
+            self._show_error(tr("login.empty_fields"))
             return
 
         user_data = self._auth.authenticate(username, password)
@@ -251,16 +274,12 @@ class LoginView(QWidget):
             if self._attempts >= _MAX_ATTEMPTS:
                 self._locked_until = time.time() + _LOCKOUT_SECONDS
                 self._attempts = 0
-                self._show_error(
-                    f"Cuenta bloqueada temporalmente ({_LOCKOUT_SECONDS}s)."
-                )
+                self._show_error(tr("login.locked_temp").format(n=_LOCKOUT_SECONDS))
                 self._start_lockout_timer()
             else:
                 remaining = _MAX_ATTEMPTS - self._attempts
-                self._show_error(
-                    f"Credenciales incorrectas. Te quedan {remaining} intento(s)."
-                )
-            self.login_failed.emit("Credenciales incorrectas")
+                self._show_error(tr("login.invalid").format(n=remaining))
+            self.login_failed.emit(tr("login.invalid").format(n=0))
 
     def _start_lockout_timer(self) -> None:
         self._lockout_timer = QTimer(self)
@@ -275,6 +294,4 @@ class LoginView(QWidget):
             self._hide_error()
             self._locked_until = 0.0
             return
-        self._show_error(
-            f"Cuenta bloqueada temporalmente. Reintenta en {int(remaining)}s."
-        )
+        self._show_error(tr("login.locked_temp").format(n=int(remaining)))

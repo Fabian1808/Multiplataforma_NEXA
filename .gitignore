@@ -24,3 +24,8 @@ diag_exit.txt
 # Fuentes originales de logo en la raíz (las copias oficiales viven en assets/)
 logo con nombre.png
 logo para acceso directo.png
+
+# Datos de ejecución y diagnósticos locales (no versionar)
+historico/
+scratch_*.py
+Nuevo Documento de texto.txt

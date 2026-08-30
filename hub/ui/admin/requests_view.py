@@ -66,12 +66,14 @@ class RequestsView(QWidget):
         all_btn = QPushButton("Todas")
         all_btn.setStyleSheet(NEXAStyles.primary_button())
         all_btn.setFixedWidth(80)
+        all_btn.clicked.connect(lambda: self._filter_by_status("all"))
         self._status_buttons.append(("all", all_btn))
         status_row.addWidget(all_btn)
         for status in ("enviada", "en_revision", "en_desarrollo", "pruebas", "aprobada", "cerrada"):
             btn = QPushButton(status.replace("_", " ").title())
             btn.setStyleSheet(NEXAStyles.secondary_button())
             btn.setFixedWidth(120)
+            btn.clicked.connect(lambda _, s=status: self._filter_by_status(s))
             self._status_buttons.append((status, btn))
             status_row.addWidget(btn)
         status_row.addStretch()
@@ -88,7 +90,21 @@ class RequestsView(QWidget):
 
     def set_requests(self, requests: list[dict]) -> None:
         self._requests = requests
-        self._render()
+        self._filter_by_status("all")
+
+    def _filter_by_status(self, status: str) -> None:
+        for s, btn in self._status_buttons:
+            if s == status:
+                btn.setStyleSheet(NEXAStyles.primary_button())
+            else:
+                btn.setStyleSheet(NEXAStyles.secondary_button())
+                
+        if status == "all":
+            filtered = self._requests
+        else:
+            filtered = [r for r in self._requests if r.get("status") == status]
+            
+        self._render(filtered)
 
     def _render(self, filtered: list[dict] | None = None) -> None:
         items = filtered if filtered is not None else self._requests

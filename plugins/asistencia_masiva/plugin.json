@@ -1,0 +1,10 @@
+{
+  "id": "asistencia_masiva",
+  "name": "Asistencia Masiva (Rainbow)",
+  "version": "1.0.0",
+  "description": "Genera un reporte masivo de horas trabajadas para todo el personal a partir de marcaciones de Rainbow.",
+  "author": "Nexa",
+  "category": "Reporting",
+  "entrypoint": "gui.widget",
+  "execution_mode": "embedded"
+}

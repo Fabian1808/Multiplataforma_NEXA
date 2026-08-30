@@ -9,13 +9,11 @@
   "owner": "Fabian",
   "area": "Contracts",
   "status": "oficial",
-  "entrypoint": "main",
+  "entrypoint": "gui.widget",
   "icon": "⏱",
+  "logo": "logo.png",
   "permissions": ["read_files", "write_files", "execute"],
-  "dependencies": ["openpyxl", "pywin32", "rapidfuzz"],
+  "dependencies": ["openpyxl", "pywin32", "rapidfuzz", "colorama"],
   "documentation_url": "",
-  "launch_mode": "external",
-  "executable_name": "Aplicativo_Rainbow.exe",
-  "launch_paths": ["C:\\Users\\fabia\\Documents\\Sistema_Horas_Extras\\dist\\Aplicativo_Rainbow.exe"],
-  "launch_url": "\\\\SERVIDOR-NEXA\\Aplicaciones\\Horas_Extras\\Aplicativo_Rainbow.exe"
+  "launch_mode": "embedded"
 }

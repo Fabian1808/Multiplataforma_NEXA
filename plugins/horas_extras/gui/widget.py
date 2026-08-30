@@ -92,6 +92,7 @@ class HorasExtrasWidget(QWidget):
         self._download_btn.setStyleSheet(NEXAStyles.secondary_button())
         self._download_btn.setFixedHeight(44)
         self._download_btn.setEnabled(False)
+        self._download_btn.clicked.connect(self._on_download)
         actions_layout.addWidget(self._download_btn)
 
         layout.addWidget(actions_frame)
@@ -162,16 +163,27 @@ class HorasExtrasWidget(QWidget):
 
             def run(self) -> None:
                 try:
-                    if str(self._engine_path) not in sys.path:
-                        sys.path.insert(0, str(self._engine_path))
+                    src_path = self._engine_path / "src"
+                    if str(src_path) not in sys.path:
+                        sys.path.insert(0, str(src_path))
 
-                    from src.main import ejecutar
-                    resultado = ejecutar(
+                    from main import ejecutar_para_gui
+                    
+                    config_path = self._engine_path.parent / "config" / "config.json"
+                    if not config_path.exists():
+                        # Respaldar con el config dentro de engine/config
+                        config_path = self._engine_path / "config" / "config.json"
+
+                    resultado, exito = ejecutar_para_gui(
+                        config_ruta=str(config_path),
                         consolidado=self._consolidado,
                         relatorios=self._rainbows,
-                        modo_prueba=False,
                     )
-                    self.finished.emit(str(resultado))
+                    
+                    if exito:
+                        self.finished.emit(str(resultado))
+                    else:
+                        self.error.emit(str(resultado))
                 except Exception as e:
                     self.error.emit(str(e))
 
@@ -183,13 +195,35 @@ class HorasExtrasWidget(QWidget):
     def _on_process_done(self, result: str) -> None:
         self._process_btn.setEnabled(True)
         self._process_btn.setText("\u25b6  PROCESAR")
-        self._download_btn.setEnabled(True)
         self._result_text.setText(f"Proceso completado:\n{result}")
+        
+        import re
+        match = re.search(r"EXCEL COMPLETADO LISTO:\s*(.+)", result)
+        if match:
+            self._last_output_excel = match.group(1).strip()
+            self._download_btn.setEnabled(True)
 
     def _on_process_error(self, error: str) -> None:
         self._process_btn.setEnabled(True)
         self._process_btn.setText("\u25b6  PROCESAR")
         self._result_text.setText(f"Error:\n{error}")
+
+    def _on_download(self) -> None:
+        path = getattr(self, "_last_output_excel", None)
+        if not path:
+            return
+            
+        import shutil
+        default_name = Path(path).name
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Guardar Excel Completado", default_name, "Excel (*.xlsx *.xlsm)"
+        )
+        if dest:
+            try:
+                shutil.copy2(path, dest)
+                QMessageBox.information(self, "Éxito", f"Archivo guardado correctamente en:\n{dest}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"No se pudo guardar el archivo:\n{str(e)}")
 
 
 def create_widget(parent: Any = None) -> QWidget:

@@ -26,6 +26,9 @@ automatización, consulta una guía, pide ayuda o propone una nueva solución.
 ## Inicio rápido en Windows
 
 ```bat
+:: 0) Launcher unificado (instala si es necesario y abre la app)
+NEXA.bat
+
 :: 1) Instalar (crea .venv e instala dependencias)
 Instalar_NEXA.bat
 
@@ -65,7 +68,8 @@ hub/
                          notifications, workflow, reports, app_launcher...)
   infrastructure/        database.py (sqlite con lock), logging_setup.py
   models/                Dataclasses (user, plugin, request, notification...)
-plugins/                 Herramientas embebidas (horas_extras, sap_automation, _template)
+plugins/                 Herramientas embebidas (horas_extras, asistencia_masiva,
+                         dashboard_hhee, sap_automation, _template)
 modules/                Integraciones de lenguaje/plataforma (excel, outlook, pdf, sap)
 tests/                   pytest (unit, smoke, integration)
 assets/                  logos oficiales (logo_brand.png, logo_taskbar.{png,ico})

@@ -1,0 +1,10 @@
+{
+  "id": "dashboard_hhee",
+  "name": "Dashboard Horas Extras",
+  "version": "1.0.0",
+  "description": "Visualiza el hist\u00f3rico de horas extras validadas, agrupadas por empresa y filtradas por a\u00f1o y mes.",
+  "author": "Nexa",
+  "category": "Reporting",
+  "entrypoint": "gui.widget",
+  "execution_mode": "embedded"
+}

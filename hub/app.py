@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from hub import __app_name__, __version__
 from hub.core.service_container import ServiceContainer
+from hub.i18n import tr
 from hub.infrastructure.logging_setup import setup_logging
 from hub.ui.auth.login_view import LoginView
 from hub.ui.common.design import Theme
@@ -91,7 +92,7 @@ class NexaSplash(QSplashScreen):
         layout.addStretch()
 
         # Mensaje de estado
-        self._status_lbl = QLabel("Iniciando...")
+        self._status_lbl = QLabel(tr("splash.starting"))
         self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._status_lbl.setFont(QFont("Segoe UI", 10))
         self._status_lbl.setStyleSheet("color: #6E6E88; background: transparent;")
@@ -160,11 +161,19 @@ class MainWindow(QMainWindow):
         self._stack.setCurrentWidget(login)
 
     def _on_login_success(self, user_data: dict) -> None:
-        self._shell = Shell(self._services)
-        self._shell.setup_ui(user_data)
-        self._shell.logout_requested.connect(self._on_logout)
-        self._stack.addWidget(self._shell)
-        self._stack.setCurrentWidget(self._shell)
+        try:
+            self._shell = Shell(self._services)
+            self._shell.setup_ui(user_data)
+            self._shell.logout_requested.connect(self._on_logout)
+            self._stack.addWidget(self._shell)
+            self._stack.setCurrentWidget(self._shell)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            logger.exception("CRITICAL ERROR IN LOGIN SUCCESS")
+            import sys
+            sys.exit(1)
+
 
     def _on_logout(self) -> None:
         if self._shell is not None:
@@ -208,16 +217,16 @@ def create_app() -> tuple[QApplication, "MainWindow"]:
     # Mostrar splash inmediatamente — el usuario ve algo en <0.3s
     splash = NexaSplash()
     splash.show()
-    splash.set_status("Conectando base de datos...", 20)
+    splash.set_status(tr("splash.db"), 20)
 
     # La MainWindow inicializa ServiceContainer (DB + servicios)
-    splash.set_status("Cargando servicios...", 45)
+    splash.set_status(tr("splash.services"), 45)
     window = MainWindow()
 
-    splash.set_status("Preparando interfaz...", 75)
+    splash.set_status(tr("splash.ui"), 75)
     window.show()
 
-    splash.set_status("Listo", 100)
+    splash.set_status(tr("splash.ready"), 100)
     # Cerrar splash con pequeño delay para que se vea el 100%
     QTimer.singleShot(350, splash.close)
 
