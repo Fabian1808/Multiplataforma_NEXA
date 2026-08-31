@@ -1,0 +1,254 @@
+{
+  "moneda": "S/",
+  "decimales": 2,
+  "rainbow": {
+    "hoja": null,
+    "fila_encabezado": 1,
+    "col_tipo": "Tipo",
+    "col_empresa": "Empresa Tercero",
+    "col_ruc": "RUC",
+    "col_num_personal": "Num Personal",
+    "col_fotocheck": "Fotocheck",
+    "col_empleado": "Empleado",
+    "col_dni": "DNI",
+    "col_fecha": "Fecha",
+    "col_hora": "Hora",
+    "col_tipo_acceso": "Tipo Acceso",
+    "col_situacion": "Situación",
+    "permitido_si": "Permitido",
+    "txt_entrada": [
+      "entrada",
+      "ingreso"
+    ],
+    "txt_salida": [
+      "salida"
+    ]
+  },
+  "relatorio": {
+    "hoja": "Sheet1",
+    "fila_encabezado": 1,
+    "columnas": {
+      "empresa": "Empresa",
+      "unidad": "Unidad",
+      "codigo_grupo": "Codigo del Grupo",
+      "grupo_empresa": "Grupo Empresa",
+      "codigo_empresa": "Codigo Empresa",
+      "empresa_terceros": "Empresa Terceros",
+      "ruc": "RUC",
+      "nombre_comercial": "Nombre Comercial",
+      "grupo_terceros": "Grupo Terceros",
+      "empleado": "Empleado",
+      "fotocheck": "Fotocheck",
+      "fecha_admision": "Fecha de Admisión",
+      "fecha_despido": "Fecha de Despido",
+      "motivo_despido": "Motivo Despido",
+      "fecha_inactividad": "Fecha Inactividad",
+      "motivo_inactividad": "Motivo Inactividad",
+      "inicio_actividad": "Inicio Actividad",
+      "fin_actividad": "Fin Actividad",
+      "dni": "DNI",
+      "extranjero": "Extranjero",
+      "sexo": "Sexo",
+      "fecha_nacimiento": "Fecha Nacimiento",
+      "cargo": "Cargo",
+      "seccion": "Sección",
+      "matricula_ext": "Matrícula Ext",
+      "fecha_inclusion": "Fecha Inclusión",
+      "hora_inclusion": "Hora Inclusión",
+      "contrato": "Contrato",
+      "unidad_trabajo": "Unidad de Trabajo",
+      "perfil_contrato": "Perfil Contrato",
+      "tipo_sangre": "Tipo de Sangre"
+    }
+  },
+  "tarifas": {
+    "hoja": null,
+    "fila_encabezado": 1,
+    "col_id": "ID",
+    "col_title": "Title",
+    "col_empresa": "Empresa",
+    "col_objeto": "Objeto del contrato",
+    "col_ruc": "RUC",
+    "col_cargo": "Descripcion Cargo",
+    "col_25": "25%",
+    "col_35": "35%",
+    "col_100": "100%",
+    "col_tipo_item": "Tipo de Item"
+  },
+  "areas": {
+    "hoja": null,
+    "fila_encabezado": 1,
+    "col_titulo": "Título",
+    "col_id": "Id",
+    "col_id_gerencia": "Id_Gerencia"
+  },
+  "gerencia": {
+    "hoja": null,
+    "fila_encabezado": 1,
+    "col_titulo": "Título",
+    "col_id": "Id"
+  },
+  "normalizacion": {
+    "mayusculas": true,
+    "quitar_tildes": true,
+    "quitar_caracteres_especiales": true,
+    "ordenar_tokens": false
+  },
+  "conciliacion": {
+    "claves": [
+      "dni",
+      "fotocheck",
+      "num_personal"
+    ],
+    "usar_nombre_normalizado": true,
+    "matching": {
+      "umbral_exacta": 100.0,
+      "umbral_difusa_min": 82.0,
+      "margen_ambiguo": 2.0,
+      "candidatos_max": 5,
+      "alias": {
+        "activo": true,
+        "edicion_max": 1,
+        "len_min_substring": 4,
+        "piso_cobertura_alias": 60
+      }
+    }
+  },
+  "jornada": {
+    "descuento_comida_horas": 1.0
+  },
+  "turnos": {
+    "T1": {
+      "jornada_horas": 10.0,
+      "entrada": {
+        "min": "04:00",
+        "max": "12:00"
+      },
+      "salida": {
+        "min": "11:00",
+        "max": "23:59"
+      },
+      "descuento_comida_horas": 1.0,
+      "hora_limite_sin_comida": 6.0
+    },
+    "T2": {
+      "jornada_horas": 12.0,
+      "cruza_medianoche": true,
+      "entrada_dia_d": {
+        "min": "17:00",
+        "max": "23:59"
+      },
+      "entrada_dia_dmas1": {
+        "min": "00:00",
+        "max": "06:00"
+      },
+      "salida_dia_dmas1": {
+        "min": "00:00",
+        "max": "13:00"
+      },
+      "salida_mismo_dia": {
+        "min": "22:00",
+        "max": "23:59"
+      },
+      "ventana_busqueda_horas": 19,
+      "rango_duracion_horas": [
+        6,
+        16
+      ],
+      "rango_duracion_madrugada_horas": [
+        0.5,
+        8
+      ],
+      "madrugada_horas": {
+        "min": "04:00",
+        "max": "08:00"
+      },
+      "pausa_nueva_jornada_min": 60,
+      "puntaje_minimo": 55
+    },
+    "T3": {
+      "jornada_horas": 8.0,
+      "entrada": {
+        "min": "12:00",
+        "max": "15:00"
+      },
+      "salida": {
+        "min": "18:00",
+        "max": "23:59"
+      }
+    }
+  },
+  "horas_extras": {
+    "tipos_hora": {
+      "25%": {
+        "columna": "25%",
+        "pct": 0.25
+      },
+      "35%": {
+        "columna": "35%",
+        "pct": 0.35
+      },
+      "100%": {
+        "columna": "100%",
+        "pct": 1.0
+      }
+    },
+    "clasificacion": {
+      "SOBRETIEMPO": {
+        "min_horas_extras": 0.0,
+        "horas_limite_25": 2.0,
+        "tipo_25": "25%",
+        "tipo_35": "35%"
+      },
+      "ACTIVACION": {
+        "min_horas_extras": 7.0,
+        "tipo_100": "100%"
+      }
+    }
+  },
+  "matching_tarifas": {
+    "claves": [
+      "ruc",
+      "empresa",
+      "cargo"
+    ],
+    "niveles": {
+      "ALTA": {
+        "ruc": true,
+        "empresa": true,
+        "cargo": true
+      },
+      "MEDIA": {
+        "empresa": true,
+        "cargo": true,
+        "contrato": true
+      },
+      "BAJA": {
+        "cargo": true
+      }
+    },
+    "requiere_objeto": false
+  },
+  "validacion": {
+    "estados": [
+      "OK",
+      "ADVERTENCIA",
+      "REVISAR",
+      "ERROR"
+    ],
+    "horas_anomalas_max": 24.0,
+    "considerar_inactivo": true
+  },
+  "exportacion": {
+    "hojas": [
+      "RESUMEN",
+      "DETALLE",
+      "AUDITORIA",
+      "ERRORES",
+      "TARIFAS",
+      "MARCACIONES"
+    ],
+    "encabezado_color": "#FF5503",
+    "encabezado_fuente": "FFFFFF"
+  }
+}

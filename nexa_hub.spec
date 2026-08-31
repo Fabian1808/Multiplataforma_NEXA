@@ -89,6 +89,7 @@ a = Analysis(
         "hub.ui.search.search_view",
         "plugins.horas_extras.gui.widget",
         "plugins.sap_automation.gui.widget",
+        "plugins.horas_extras_masiva.gui.widget",
         "PySide6",
         "PySide6.QtCore",
         "PySide6.QtGui",

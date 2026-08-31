@@ -1,0 +1,10 @@
+{
+  "id": "horas_extras_masiva",
+  "name": "Horas Extras Masiva",
+  "version": "1.0.0",
+  "description": "Calcula horas extras masivas valorizadas en soles: marcaciones RAINBOW + maestro RELATORIO + tarifario TARIFAS, con matching tarifario por niveles de confianza, auditoría y exportación Excel de 6 hojas.",
+  "author": "Nexa",
+  "category": "Reportes",
+  "entrypoint": "gui.widget",
+  "execution_mode": "embedded"
+}

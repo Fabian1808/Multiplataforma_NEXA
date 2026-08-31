@@ -1052,6 +1052,11 @@ class Shell(QWidget):
             top = sorted(all_plugins, key=lambda p: p.execution_count, reverse=True)[:6]
             fav_ids = self._svc.favorites.get_favorite_ids(self._svc.user_id)
             fav_tools = [{"name": p.name, "plugin_id": p.id, "category": p.category.value} for p in all_plugins if p.id in fav_ids][:6]
+            # Accesos directos: siempre destacar Horas Extras Masiva al inicio.
+            destacados = all_plugins if isinstance(all_plugins, list) else list(all_plugins)
+            he_pin = [p for p in destacados if p.id == "horas_extras_masiva"]
+            resto = [p for p in destacados if p.id != "horas_extras_masiva"]
+            shown = he_pin[:6] + [p for p in resto][:6]
             app_health = self._svc.app_states.get_stats()
             pending = self._svc.requests.get_all()
             pending_count = len([r for r in pending if r.get("status") == "pendiente"])
@@ -1060,6 +1065,7 @@ class Shell(QWidget):
                 "stats": stats,
                 "top_plugins": [{"name": p.name, "executions": p.execution_count} for p in top],
                 "favorites": fav_tools,
+                "shortcuts": shown,
                 "app_health": app_health,
                 "pending_requests": pending_count,
                 "recent_activity": [{"icon": "\u25cf", "text": e.get("description", ""), "time": e.get("timestamp", "")[:16], "color": "#FF5503"} for e in recent],
@@ -1084,6 +1090,8 @@ class Shell(QWidget):
         view.update_kpi("posts", str(s["total_posts"]))
         view.update_kpi("incidents", str(s["open_incidents"]))
         view.set_popular_tools(data["top_plugins"])
+        if data.get("shortcuts"):
+            view.set_shortcuts(data["shortcuts"])
         if data.get("favorites"):
             view.set_favorites(data["favorites"])
         if data.get("app_health"):

@@ -29,3 +29,7 @@ logo para acceso directo.png
 historico/
 scratch_*.py
 Nuevo Documento de texto.txt
+
+# Datos reales del negocio: NO versionar (marcaciones, maestro personal, tarifario)
+RAINBOW/
+*.xlsx

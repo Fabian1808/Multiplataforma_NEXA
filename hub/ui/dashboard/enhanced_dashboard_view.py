@@ -18,8 +18,10 @@ from hub.ui.common.design import (
     Icon,
     SUCCESS,
     WARNING,
-    get_font
+    AppCard,
+    get_font,
 )
+from hub.models.plugin import PluginDescriptor
 
 
 class KPICard(QFrame):
@@ -164,6 +166,13 @@ class EnhancedDashboardView(QWidget):
         self._subtitle.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent;")
         layout.addWidget(self._subtitle)
 
+        # Accesos directos a aplicaciones (clic abre el plugin)
+        self._shortcuts_section = _SectionCard(tr("dashboard.shortcuts"), "zap")
+        self._shortcuts_body = QHBoxLayout()
+        self._shortcuts_body.setSpacing(14)
+        self._shortcuts_section._body.addLayout(self._shortcuts_body)
+        layout.addWidget(self._shortcuts_section)
+
         self._kpi_grid = QGridLayout()
         self._kpi_grid.setSpacing(14)
         self._kpis: dict[str, KPICard] = {}
@@ -236,6 +245,38 @@ class EnhancedDashboardView(QWidget):
             c = QWidget()
             c.setLayout(row)
             self._activity_section._body.addWidget(c)
+
+    def set_shortcuts(self, plugins: list[PluginDescriptor]) -> None:
+        """Renderiza tarjetas de aplicaciones destacadas, clicables, en la
+        pantalla de inicio (accesos directos)."""
+        while self._shortcuts_body.count():
+            item = self._shortcuts_body.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+        if not plugins:
+            self._shortcuts_section.clear_body()
+            self._shortcuts_section._set_placeholder(True)
+            return
+        self._shortcuts_section.clear_body()
+        self._shortcuts_section._set_placeholder(False)
+        for p in plugins[:4]:
+            card = AppCard(
+                plugin_id=p.id,
+                name=p.name,
+                description=p.description,
+                category=p.category.value,
+                status=getattr(p, "status", "oficial").value
+                if hasattr(getattr(p, "status", "oficial"), "value") else "oficial",
+                execution_count=getattr(p, "execution_count", 0),
+                is_favorite=False,
+                icon_name=p.icon or "package",
+                on_click=lambda pid: self.plugin_clicked.emit(pid),
+            )
+            card.setFixedWidth(260)
+            card._fav_btn.hide()
+            self._shortcuts_body.addWidget(card)
+        self._shortcuts_body.addStretch()
 
     def set_popular_tools(self, tools: list[dict]) -> None:
         self._tools_section.clear_body()
@@ -324,5 +365,6 @@ class EnhancedDashboardView(QWidget):
         for card in self._kpis.values():
             card.refresh_style()
         for sec in (self._favorites_section, self._health_section,
-                    self._activity_section, self._tools_section):
+                    self._activity_section, self._tools_section,
+                    self._shortcuts_section):
             sec.refresh_style()
