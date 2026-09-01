@@ -10,6 +10,7 @@ Los montos se escriben como Decimal exacto (2 decimales).
 from __future__ import annotations
 
 import os
+import re
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -75,146 +76,167 @@ def _mon(dec, cfg):
     return u.monto_decimal(dec) if dec is not None else Decimal("0.00")
 
 
+def _normaliza(nombre: str) -> str:
+    """Compara nombres de hoja sin sensibilidad a mayúsculas/espacios."""
+    return re.sub(r"\s+", "", (nombre or "").upper())
+
+
 def exportar(resultado, ruta_destino: str | os.PathLike, cfg) -> str:
     wb = openpyxl.Workbook()
     cfg_exp = cfg.get("exportacion") or {}
-    hojas = cfg_exp.get("hojas", ["RESUMEN", "DETALLE", "AUDITORIA", "ERRORES", "TARIFAS", "MARCACIONES"])
+    hojas_cfg = cfg_exp.get("hojas", ["RESUMEN", "DETALLE", "AUDITORIA", "ERRORES", "TARIFAS", "MARCACIONES"])
+
+    def _incluye(nombre):
+        return any(_normaliza(nombre) == _normaliza(h) for h in (hojas_cfg or []))
 
     # ------------------------------------------------------------------ RESUMEN
-    ws = wb.active
-    ws.title = hojas[0]
-    flias = [
-        ["Concepto", "Valor"],
-        ["Período (RAINBOW)", "%s — %s" % (_min_fecha(resultado), _max_fecha(resultado))],
-        ["Marcaciones RAINBOW", resultado.totales["marcaciones"]],
-        ["Personal RELATORIO (maestro)", resultado.totales["empleados"]],
-        ["Tarifas (TARIFAS)", resultado.totales["tarifas"]],
-        ["Marcaciones conciliadas", resultado.totales["conciliados"]],
-        ["Sin conciliar", resultado.totales["sin_conciliar"]],
-        ["Jornadas procesadas", resultado.totales["jornadas"]],
-        ["Registros de detalle", resultado.totales["registros_detalle"]],
-        ["Horas extras totales (h)", resultado.horas_extra_total],
-        ["Monto total (HH.EE.)", _mon(resultado.monto_total, cfg)],
-    ]
-    for estado in resultado.estados:
-        flias.append(["Estado %s" % estado, resultado.estados[estado]])
-    for i, fila in enumerate(flias, start=1):
-        for j, v in enumerate(fila, start=1):
-            ws.cell(row=i, column=j, value=v)
-    _estilo_encabezado(ws, 2)
-    _autoancho(ws, 2)
+    if _incluye("RESUMEN"):
+        ws = wb.active
+        ws.title = "RESUMEN"
+        flias = [
+            ["Concepto", "Valor"],
+            ["Período (RAINBOW)", "%s — %s" % (_min_fecha(resultado), _max_fecha(resultado))],
+            ["Marcaciones RAINBOW", resultado.totales["marcaciones"]],
+            ["Personal RELATORIO (maestro)", resultado.totales["empleados"]],
+            ["Tarifas (TARIFAS)", resultado.totales["tarifas"]],
+            ["Marcaciones conciliadas", resultado.totales["conciliados"]],
+            ["Sin conciliar", resultado.totales["sin_conciliar"]],
+            ["Jornadas procesadas", resultado.totales["jornadas"]],
+            ["Registros de detalle", resultado.totales["registros_detalle"]],
+            ["Horas extras totales (h)", resultado.horas_extra_total],
+            ["Monto total (HH.EE.)", _mon(resultado.monto_total, cfg)],
+        ]
+        for estado in resultado.estados:
+            flias.append(["Estado %s" % estado, resultado.estados[estado]])
+        for i, fila in enumerate(flias, start=1):
+            for j, v in enumerate(fila, start=1):
+                ws.cell(row=i, column=j, value=v)
+        _estilo_encabezado(ws, 2)
+        _autoancho(ws, 2)
 
     # ------------------------------------------------------------------ DETALLE
-    ws = wb.create_sheet(hojas[1])
-    headers_det = [
-        "Fecha", "Empleado", "DNI", "Fotocheck", "Empresa", "RUC", "Cargo",
-        "Contrato", "Turno", "Entrada", "Salida", "Horas Trabajadas",
-        "Jornada", "Horas Extras", "Tipo Hora", "Horas Tipo", "Tarifa",
-        "Monto (S/)", "Nivel Tarifa", "Estado",
-    ]
-    ws.append(headers_det)
-    filas_det = []
-    for f in resultado.filas:
-        filas_det.append([
-            _fmt_fecha(f["fecha"]),
-            _limpiar_nombre(f["empleado"]),
-            f["dni"], f["fotocheck"],
-            f["empresa"], f["ruc"], f["cargo"], f["contrato"],
-            f["turno"], f["inicio"], f["fin"],
-            float(f["horas_trabajadas"]),
-            float(f["jornada"]),
-            float(f["horas_extras"]),
-            f["tipo_hora"], float(f.get("horas_tipo", 0) or 0),
-            float(_mon(f.get("tarifa"), cfg)),
-            float(_mon(f.get("monto"), cfg)),
-            f["nivel_tarifa"], f["estado"],
-        ])
-    _escribir_filas(ws, headers_det, filas_det)
-    _estilo_encabezado(ws, len(headers_det))
-    _autoancho(ws, len(headers_det))
-    ws.auto_filter.ref = ws.dimensions
+    if _incluye("DETALLE"):
+        ws = wb.create_sheet("DETALLE")
+        headers_det = [
+            "Fecha", "Empleado", "DNI", "Fotocheck", "Empresa", "RUC", "Cargo",
+            "Contrato", "Turno", "Entrada", "Salida", "Horas Trabajadas",
+            "Jornada", "Horas Extras", "Tipo Hora", "Horas Tipo", "Tarifa",
+            "Monto (S/)", "Nivel Tarifa", "Estado",
+        ]
+        ws.append(headers_det)
+        filas_det = []
+        for f in resultado.filas:
+            filas_det.append([
+                _fmt_fecha(f["fecha"]),
+                _limpiar_nombre(f["empleado"]),
+                f["dni"], f["fotocheck"],
+                f["empresa"], f["ruc"], f["cargo"], f["contrato"],
+                f["turno"], f["inicio"], f["fin"],
+                float(f["horas_trabajadas"]),
+                float(f["jornada"]),
+                float(f["horas_extras"]),
+                f["tipo_hora"], float(f.get("horas_tipo", 0) or 0),
+                float(_mon(f.get("tarifa"), cfg)),
+                float(_mon(f.get("monto"), cfg)),
+                f["nivel_tarifa"], f["estado"],
+            ])
+        _escribir_filas(ws, headers_det, filas_det)
+        _estilo_encabezado(ws, len(headers_det))
+        _autoancho(ws, len(headers_det))
+        ws.auto_filter.ref = ws.dimensions
 
     # ------------------------------------------------------------------ AUDITORIA
-    ws = wb.create_sheet(hojas[2])
-    headers_aud = ["Fecha", "Empleado", "DNI", "Empresa", "RUC", "Cargo", "Turno",
-                   "Metodo conciliación", "Confianza conciliación", "Nivel tarifa",
-                   "Confianza tarifa", "Especificación HE", "Monto (S/)"]
-    ws.append(headers_aud)
-    por_emp = {}
-    for rc in resultado.conciliados:
-        if not rc.conciliado:
-            continue
-        emp = rc.empleado
-        por_emp.setdefault(emp.empleado, rc)
-    filas_aud = []
-    vistos = set()
-    for f in resultado.filas:
-        clave = f["empleado"]
-        rc = por_emp.get(clave)
-        if clave in vistos:
-            continue
-        vistos.add(clave)
-        filas_aud.append([
-            _fmt_fecha(f["fecha"]), _limpiar_nombre(f["empleado"]), f["dni"],
-            f["empresa"], f["ruc"], f["cargo"], f["turno"],
-            (rc.metodo if rc else "—"),
-            ("%.0f" % rc.confianza if rc else "—"),
-            f["nivel_tarifa"], ("%.0f" % f["confianza_tarifa"]),
-            f.get("especifica", ""), float(_mon(f.get("monto"), cfg)),
-        ])
-    _escribir_filas(ws, headers_aud, filas_aud)
-    _estilo_encabezado(ws, len(headers_aud))
-    _autoancho(ws, len(headers_aud))
+    if _incluye("AUDITORIA"):
+        ws = wb.create_sheet("AUDITORIA")
+        headers_aud = ["Fecha", "Empleado", "DNI", "Empresa", "RUC", "Cargo", "Turno",
+                       "Metodo conciliación", "Confianza conciliación", "Nivel tarifa",
+                       "Confianza tarifa", "Especificación HE", "Monto (S/)"]
+        ws.append(headers_aud)
+        por_emp = {}
+        for rc in resultado.conciliados:
+            if not rc.conciliado:
+                continue
+            emp = rc.empleado
+            por_emp.setdefault(emp.empleado, rc)
+        filas_aud = []
+        vistos = set()
+        for f in resultado.filas:
+            clave = f["empleado"]
+            rc = por_emp.get(clave)
+            if clave in vistos:
+                continue
+            vistos.add(clave)
+            filas_aud.append([
+                _fmt_fecha(f["fecha"]), _limpiar_nombre(f["empleado"]), f["dni"],
+                f["empresa"], f["ruc"], f["cargo"], f["turno"],
+                (rc.metodo if rc else "—"),
+                ("%.0f" % rc.confianza if rc else "—"),
+                f["nivel_tarifa"], ("%.0f" % f["confianza_tarifa"]),
+                f.get("especifica", ""), float(_mon(f.get("monto"), cfg)),
+            ])
+        _escribir_filas(ws, headers_aud, filas_aud)
+        _estilo_encabezado(ws, len(headers_aud))
+        _autoancho(ws, len(headers_aud))
 
     # ------------------------------------------------------------------ ERRORES
-    ws = wb.create_sheet(hojas[3])
-    headers_err = ["Fecha", "Empleado", "DNI", "Cargo", "Tipo", "Detalle"]
-    ws.append(headers_err)
-    filas_err = []
-    for f in resultado.filas:
-        if f["estado"] not in ("ERROR", "REVISAR", "ADVERTENCIA"):
-            continue
-        filas_err.append([
-            _fmt_fecha(f["fecha"]), _limpiar_nombre(f["empleado"]), f["dni"],
-            f["cargo"], f["estado"], _detalle_error(f),
-        ])
-    _escribir_filas(ws, headers_err, filas_err)
-    _estilo_encabezado(ws, len(headers_err))
-    _autoancho(ws, len(headers_err))
+    if _incluye("ERRORES"):
+        ws = wb.create_sheet("ERRORES")
+        headers_err = ["Fecha", "Empleado", "DNI", "Cargo", "Tipo", "Detalle"]
+        ws.append(headers_err)
+        filas_err = []
+        for f in resultado.filas:
+            if f["estado"] not in ("ERROR", "REVISAR", "ADVERTENCIA"):
+                continue
+            filas_err.append([
+                _fmt_fecha(f["fecha"]), _limpiar_nombre(f["empleado"]), f["dni"],
+                f["cargo"], f["estado"], _detalle_error(f),
+            ])
+        _escribir_filas(ws, headers_err, filas_err)
+        _estilo_encabezado(ws, len(headers_err))
+        _autoancho(ws, len(headers_err))
 
     # ------------------------------------------------------------------ TARIFAS
-    ws = wb.create_sheet(hojas[4])
-    headers_tar = ["Cargo", "Empresa", "RUC", "Objeto del contrato", "25%", "35%", "100%"]
-    ws.append(headers_tar)
-    filas_tar = []
-    for t in resultado.tarifas:
-        filas_tar.append([
-            t.cargo, t.empresa, t.ruc, t.objeto,
-            float(t.c25), float(t.c35), float(t.c100),
-        ])
-    _escribir_filas(ws, headers_tar, filas_tar)
-    _estilo_encabezado(ws, len(headers_tar))
-    _autoancho(ws, len(headers_tar))
+    if _incluye("TARIFAS"):
+        ws = wb.create_sheet("TARIFAS")
+        headers_tar = ["Cargo", "Empresa", "RUC", "Objeto del contrato", "25%", "35%", "100%"]
+        ws.append(headers_tar)
+        filas_tar = []
+        for t in resultado.tarifas:
+            filas_tar.append([
+                t.cargo, t.empresa, t.ruc, t.objeto,
+                float(t.c25), float(t.c35), float(t.c100),
+            ])
+        _escribir_filas(ws, headers_tar, filas_tar)
+        _estilo_encabezado(ws, len(headers_tar))
+        _autoancho(ws, len(headers_tar))
 
     # ------------------------------------------------------------------ MARCACIONES
-    ws = wb.create_sheet(hojas[5])
-    headers_mar = ["Fecha", "Hora", "Tipo Acceso", "Empleado", "DNI", "Fotocheck",
-                   "Empresa", "RUC", "Situación", "Método conciliación"]
-    ws.append(headers_mar)
-    filas_mar = []
-    met_por_marc = {}
-    for rc in resultado.conciliados:
-        met_por_marc[id(rc.marcacion)] = rc.metodo
-    for mar in resultado.marcaciones:
-        filas_mar.append([
-            _fmt_fecha(mar.fecha), mar.hora.strftime("%H:%M:%S") if mar.hora else "",
-            mar.tipo_acceso, _limpiar_nombre(mar.empleado), mar.dni, mar.fotocheck,
-            mar.empresa, mar.ruc, mar.situacion, met_por_marc.get(id(mar), ""),
-        ])
-    _escribir_filas(ws, headers_mar, filas_mar)
-    _estilo_encabezado(ws, len(headers_mar))
-    _autoancho(ws, len(headers_mar))
-    ws.auto_filter.ref = ws.dimensions
+    if _incluye("MARCACIONES"):
+        ws = wb.create_sheet("MARCACIONES")
+        headers_mar = ["Fecha", "Hora", "Tipo Acceso", "Empleado", "DNI", "Fotocheck",
+                       "Empresa", "RUC", "Situación", "Método conciliación"]
+        ws.append(headers_mar)
+        filas_mar = []
+        met_por_marc = {}
+        for rc in resultado.conciliados:
+            met_por_marc[id(rc.marcacion)] = rc.metodo
+        for mar in resultado.marcaciones:
+            filas_mar.append([
+                _fmt_fecha(mar.fecha), mar.hora.strftime("%H:%M:%S") if mar.hora else "",
+                mar.tipo_acceso, _limpiar_nombre(mar.empleado), mar.dni, mar.fotocheck,
+                mar.empresa, mar.ruc, mar.situacion, met_por_marc.get(id(mar), ""),
+            ])
+        _escribir_filas(ws, headers_mar, filas_mar)
+        _estilo_encabezado(ws, len(headers_mar))
+        _autoancho(ws, len(headers_mar))
+        ws.auto_filter.ref = ws.dimensions
+
+    # Eliminar la hoja activa por defecto si quedó vacía (p.ej. sin RESUMEN)
+    for sn in [s for s in wb.sheetnames]:
+        ws = wb[sn]
+        if (ws.max_row == 1 and ws.max_column == 1
+                and ws.cell(1, 1).value is None):
+            del wb[sn]
 
     os.makedirs(os.path.dirname(os.path.abspath(ruta_destino)) or ".", exist_ok=True)
     wb.save(ruta_destino)
@@ -229,7 +251,16 @@ def _fmt_fecha(f):
 
 
 def _limpiar_nombre(nombre):
-    return u.limpiar_codigo(str(nombre)).strip() if nombre else ""
+    """Devuelve el nombre legible del empleado.
+
+    Si el valor viene como 'CODIGO - NOMBRE' conserva el NOMBRE (no el código),
+    que es lo que debe verse en la columna de empleado.
+    """
+    s = str(nombre or "").strip()
+    if not s:
+        return ""
+    m = re.match(r"^\d+\s*-\s*(.+)$", s)
+    return m.group(1).strip() if m else s
 
 
 def _min_fecha(res):

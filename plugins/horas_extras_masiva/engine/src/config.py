@@ -231,7 +231,7 @@ DEFAULT_CONFIG: dict = {
     # EXPORTACIÓN
     # ------------------------------------------------------------------
     "exportacion": {
-        "hojas": ["RESUMEN", "DETALLE", "AUDITORIA", "ERRORES", "TARIFAS", "MARCACIONES"],
+        "hojas": ["DETALLE"],
         "encabezado_color": "#FF5503",
         "encabezado_fuente": "FFFFFF",
     },

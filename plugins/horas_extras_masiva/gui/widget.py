@@ -1,7 +1,7 @@
 """GUI widget de HORAS EXTRAS MASIVA para el Hub (embebido).
 
 Flujo de usuario: Cargar Rainbow / Personal (Relatorio) / Tarifas
--> Calcular -> Revisar KPIs y TOPs -> Exportar Excel (6 hojas).
+-> Calcular -> Revisar KPIs y TOPs -> Exportar Excel (detalle).
 Sigue la paleta NEXA (claro/oscuro automático vía Theme).
 """
 
@@ -171,7 +171,7 @@ class HorasExtrasMasivaWidget(QWidget):
         self.btn_calcular.setMinimumHeight(42)
         self.btn_calcular.clicked.connect(self._ejecutar)
         btn_row.addWidget(self.btn_calcular)
-        self.btn_exportar_proceso = QPushButton("Descargar Excel (6 hojas)")
+        self.btn_exportar_proceso = QPushButton("Descargar Excel")
         self.btn_exportar_proceso.setStyleSheet(NEXAStyles.secondary_button())
         self.btn_exportar_proceso.setMinimumHeight(42)
         self.btn_exportar_proceso.setEnabled(False)
@@ -207,7 +207,7 @@ class HorasExtrasMasivaWidget(QWidget):
         lay.setSpacing(10)
 
         barra = QHBoxLayout()
-        self.btn_exportar = QPushButton("Exportar Excel (6 hojas)")
+        self.btn_exportar = QPushButton("Exportar Excel")
         self.btn_exportar.setStyleSheet(NEXAStyles.primary_button())
         self.btn_exportar.setEnabled(False)
         self.btn_exportar.clicked.connect(self._exportar)
