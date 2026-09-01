@@ -77,6 +77,14 @@ class KPIWidget(QFrame):
     def set_value(self, value: str) -> None:
         self._value.setText(value)
 
+    def refresh_style(self, color: str = ACCENT) -> None:
+        """Re-aplica la tarjeta y sus textos con el tema activo (claro/oscuro)."""
+        self.setStyleSheet(NEXAStyles.kpi_card(color))
+        self._value.setStyleSheet(
+            f"color: {Theme.text()}; background: transparent; border: none;")
+        self._title.setStyleSheet(
+            f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+
 
 class AppCard(QFrame):
     """Tarjeta de aplicación — jerarquía visual clara, hover, favorito y badge."""

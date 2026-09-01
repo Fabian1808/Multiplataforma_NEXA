@@ -49,6 +49,10 @@ class AppViewer(QWidget):
         self._current_plugin: PluginDescriptor | None = None
         self._is_favorite = False
         self._exec_count = 0
+        # Widget del plugin embebido: se crea UNA vez y se REUTILIZA entre
+        # cambios de tema. NUNCA se destruye al refrescar el tema, para no
+        # matar los QThread de cálculo/exportación en ejecución (crash).
+        self._plugin_widget: QWidget | None = None
         # Layout raíz persistente: se crea UNA VEZ. El contenido vive en un
         # contenedor (self._body_widget) que se intercambia al refrescar el tema,
         # evitando el error "QLayout ... already has a layout".
@@ -158,9 +162,11 @@ class AppViewer(QWidget):
         title_col.setSpacing(0)
         self._title = QLabel("Aplicación")
         self._title.setFont(get_font(20, weight=700))
+        self._title.setObjectName("avTitle")
         self._title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         title_col.addWidget(self._title)
         self._description = QLabel("")
+        self._description.setObjectName("avDesc")
         self._description.setFont(get_font(12))
         self._description.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
         self._description.setWordWrap(True)
@@ -177,6 +183,7 @@ class AppViewer(QWidget):
         self._status_badge = StatusBadge("desconocido")
         row.addWidget(self._status_badge)
         self._version_label = QLabel("")
+        self._version_label.setObjectName("avMuted")
         self._version_label.setFont(get_font(11))
         self._version_label.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
         row.addWidget(self._version_label)
@@ -212,6 +219,7 @@ class AppViewer(QWidget):
         ico.set_color(ACCENT)
         head.addWidget(ico)
         title = QLabel("Espacio de trabajo")
+        title.setObjectName("avText")
         title.setFont(get_font(13, weight=600))
         title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         head.addWidget(title)
@@ -261,6 +269,7 @@ class AppViewer(QWidget):
         ico.set_color(ACCENT)
         head.addWidget(ico)
         title = QLabel("Archivos de entrada")
+        title.setObjectName("avText")
         title.setFont(get_font(13, weight=600))
         title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         head.addWidget(title)
@@ -310,6 +319,7 @@ class AppViewer(QWidget):
         ico.set_color(ACCENT)
         head.addWidget(ico)
         title = QLabel("Acciones")
+        title.setObjectName("avText")
         title.setFont(get_font(13, weight=600))
         title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         head.addWidget(title)
@@ -317,6 +327,7 @@ class AppViewer(QWidget):
         v.addLayout(head)
 
         self._execute_btn = QPushButton("Abrir Aplicación")
+        self._execute_btn.setObjectName("avPrimary")
         self._execute_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._execute_btn.setFixedHeight(40)
         self._execute_btn.setStyleSheet(NEXAStyles.primary_button())
@@ -324,6 +335,7 @@ class AppViewer(QWidget):
         v.addWidget(self._execute_btn)
 
         self._fav_btn = QPushButton("Añadir a favoritos")
+        self._fav_btn.setObjectName("avSecondary")
         self._fav_btn.setStyleSheet(NEXAStyles.secondary_button())
         self._fav_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._fav_btn.setFixedHeight(36)
@@ -331,24 +343,28 @@ class AppViewer(QWidget):
         v.addWidget(self._fav_btn)
         
         self._docs_btn = QPushButton("Ver Documentación")
+        self._docs_btn.setObjectName("avSecondary")
         self._docs_btn.setStyleSheet(NEXAStyles.secondary_button())
         self._docs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._docs_btn.setFixedHeight(36)
         v.addWidget(self._docs_btn)
         
         self._request_btn = QPushButton("Solicitar Mejora")
+        self._request_btn.setObjectName("avSecondary")
         self._request_btn.setStyleSheet(NEXAStyles.secondary_button())
         self._request_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._request_btn.setFixedHeight(36)
         v.addWidget(self._request_btn)
         
         self._bug_btn = QPushButton("Reportar Incidencia")
+        self._bug_btn.setObjectName("avSecondary")
         self._bug_btn.setStyleSheet(NEXAStyles.secondary_button())
         self._bug_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._bug_btn.setFixedHeight(36)
         v.addWidget(self._bug_btn)
 
         self._owner_label = QLabel("")
+        self._owner_label.setObjectName("avMuted")
         self._owner_label.setFont(get_font(11))
         self._owner_label.setWordWrap(True)
         self._owner_label.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
@@ -368,6 +384,7 @@ class AppViewer(QWidget):
         ico.set_color(ACCENT)
         head.addWidget(ico)
         title = QLabel("Evolución y Tecnologías")
+        title.setObjectName("avText")
         title.setFont(get_font(13, weight=600))
         title.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
         head.addWidget(title)
@@ -428,12 +445,51 @@ class AppViewer(QWidget):
 
     # ------------------------------------------------------------------
     def refresh_style(self) -> None:
-        """Reconstruye la página con el tema activo (claro/oscuro)."""
-        current_plugin_id = self._current_plugin.id if self._current_plugin else None
-        self._current_plugin = None
-        self._setup_ui()
-        if current_plugin_id:
-            self.load_plugin(current_plugin_id)
+        """Re-aplica el tema activo EN SITIO, sin reconstruir la vista.
+
+        No se destruye el widget del plugin ni sus QThread: se conserva y se le
+        pide re-aplicar su propio estilo. Esto evita el crash
+        "QThread: Destroyed while thread is still running" al cambiar de tema
+        durante un cálculo/exportación."""
+
+        # 1) Fondo del body
+        body = self.findChild(QWidget, "appBody")
+        if body is not None:
+            body.setStyleSheet(f"QWidget#appBody {{ background-color: {Theme.bg()}; }}")
+
+        # 2) Textos según su rol (objectName)
+        for lbl in self.findChildren(QLabel):
+            oid = lbl.objectName()
+            if oid == "avTitle":
+                lbl.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+            elif oid == "avDesc":
+                lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background: transparent; border: none;")
+            elif oid == "avMuted":
+                lbl.setStyleSheet(f"color: {Theme.text_muted()}; background: transparent; border: none;")
+            elif oid == "avText":
+                lbl.setStyleSheet(f"color: {Theme.text()}; background: transparent; border: none;")
+
+        # 3) Tarjetas KPI
+        for kpi in self.findChildren(KPIWidget):
+            kpi.refresh_style(ACCENT)
+
+        # 4) Botones principales (recuperan estilos NEXA actual)
+        for b in self.findChildren(QPushButton):
+            oid = b.objectName()
+            if oid == "avPrimary":
+                b.setStyleSheet(NEXAStyles.primary_button())
+            elif oid == "avSecondary":
+                b.setStyleSheet(NEXAStyles.secondary_button())
+            elif oid == "avGhost":
+                b.setStyleSheet(NEXAStyles.ghost_button())
+
+        # 5) Widget del plugin: pedirle que re-aplique su tema (no recrearlo)
+        if self._plugin_widget is not None and hasattr(self._plugin_widget, "refresh_style"):
+            try:
+                self._plugin_widget.refresh_style()
+            except Exception:
+                logger.exception("Error refrescando estilos del plugin")
+
 
     def load_plugin(self, plugin_id: str) -> None:
         desc = self._registry.get(plugin_id)
@@ -540,6 +596,22 @@ class AppViewer(QWidget):
         return row
 
     def _load_plugin_widget(self, desc: PluginDescriptor) -> None:
+        # Reutilizar el widget del plugin si ya existe (evita destruir sus
+        # QThread en ejecución al refrescar el tema: previene el fatal
+        # "QThread: Destroyed while thread is still running").
+        if self._plugin_widget is not None:
+            if desc.is_external:
+                while self._plugin_layout.count():
+                    item = self._plugin_layout.takeAt(0)
+                    if item.widget():
+                        item.widget().deleteLater()
+                self._plugin_layout.addWidget(self._external_panel(desc), stretch=1)
+                return
+            if self._plugin_widget.parent() is not self._plugin_container:
+                self._plugin_widget.setParent(self._plugin_container)
+            self._plugin_layout.addWidget(self._plugin_widget)
+            return
+
         while self._plugin_layout.count():
             item = self._plugin_layout.takeAt(0)
             if item.widget():
@@ -551,52 +623,49 @@ class AppViewer(QWidget):
             self._plugin_layout.addWidget(self._external_panel(desc), stretch=1)
             return
 
+        created = None
         factory = self._registry.get_factory(desc.id)
         if factory:
-            widget = factory.create_widget(self._plugin_container)
-            self._plugin_layout.addWidget(widget)
-            return
+            created = factory.create_widget(self._plugin_container)
+        else:
+            try:
+                module = self._registry.load_plugin_module(desc.id)
+                if hasattr(module, "create_widget"):
+                    created = module.create_widget(self._plugin_container)
+            except MissingDependenciesError as e:
+                from PySide6.QtWidgets import QMessageBox, QApplication
+                from hub.core.dependency_manager import DependencyManager
 
-        try:
-            module = self._registry.load_plugin_module(desc.id)
-            if hasattr(module, "create_widget"):
-                widget = module.create_widget(self._plugin_container)
-                self._plugin_layout.addWidget(widget)
-            else:
-                info = QLabel(f"Módulo cargado: {desc.entrypoint}\nNo se encontró create_widget()")
+                reply = QMessageBox.question(self, "Dependencias Faltantes",
+                    f"El plugin requiere instalar las siguientes librerías:\n\n{', '.join(e.missing_packages)}.\n\n"
+                    "¿Deseas descargarlas e instalarlas automáticamente ahora?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+                if reply == QMessageBox.StandardButton.Yes:
+                    QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                    try:
+                        success = DependencyManager.install_dependencies(e.missing_packages)
+                    finally:
+                        QApplication.restoreOverrideCursor()
+
+                    if success:
+                        self._load_plugin_widget(desc)
+                    else:
+                        self._show_error("Fallo la instalación de las dependencias. Revisa los registros.")
+                else:
+                    self._show_error("Instalación cancelada. El plugin no puede abrirse sin sus dependencias.")
+                return
+            except Exception as e:
+                info = QLabel(f"No se pudo cargar el módulo: {e}")
                 info.setFont(get_font(12))
-                info.setStyleSheet(f"color: {Theme.text_secondary()}; padding: 20px;")
+                info.setStyleSheet("color: #E5484D; padding: 20px;")
                 info.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self._plugin_layout.addWidget(info)
-        except MissingDependenciesError as e:
-            from PySide6.QtWidgets import QMessageBox, QApplication
-            from hub.core.dependency_manager import DependencyManager
-            
-            reply = QMessageBox.question(self, "Dependencias Faltantes",
-                f"El plugin requiere instalar las siguientes librerías:\n\n{', '.join(e.missing_packages)}.\n\n"
-                "¿Deseas descargarlas e instalarlas automáticamente ahora?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                
-            if reply == QMessageBox.StandardButton.Yes:
-                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-                try:
-                    success = DependencyManager.install_dependencies(e.missing_packages)
-                finally:
-                    QApplication.restoreOverrideCursor()
-                    
-                if success:
-                    # Reintentar cargar después de instalar
-                    self._load_plugin_widget(desc)
-                else:
-                    self._show_error("Fallo la instalación de las dependencias. Revisa los registros.")
-            else:
-                self._show_error("Instalación cancelada. El plugin no puede abrirse sin sus dependencias.")
-        except Exception as e:
-            info = QLabel(f"No se pudo cargar el módulo: {e}")
-            info.setFont(get_font(12))
-            info.setStyleSheet("color: #E5484D; padding: 20px;")
-            info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._plugin_layout.addWidget(info)
+                return
+
+        if created is not None:
+            self._plugin_widget = created
+            self._plugin_layout.addWidget(created)
 
     def _external_panel(self, desc: PluginDescriptor) -> QWidget:
         """Panel para herramientas externas: estado de instalación + abrir."""

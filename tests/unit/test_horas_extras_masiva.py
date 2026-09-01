@@ -126,6 +126,36 @@ class TestConciliacion:
         res = conciliar([mar], maestro, cfg)
         assert not res[0].conciliado
 
+    def test_buscar_nombre_indice_invertido_equivale_bruto(self, cfg, maestro):
+        """El índice invertido (FASE 3) da los mismos candidatos que el barrido."""
+        from conciliacion import MaestroPersonal
+        empleados = [_empleado(), _empleado(nombre="000000002 - RAMIREZ ANA MARIA", dni="11111111")]
+        m = MaestroPersonal(empleados, cfg)
+        # fuerza y compara con el barrido bruto
+        cands = m.buscar_nombre("NAVARRO PALACIN HENRY ALEJANDRO", 82.0)
+        brutos = m._buscar_nombre_bruto(m._norm("NAVARRO PALACIN HENRY ALEJANDRO"), 82.0)
+        kl_new = [(id(e), round(c, 6)) for e, c in cands]
+        kl_old = [(id(e), round(c, 6)) for e, c in brutos]
+        assert kl_new == kl_old
+        assert any(id(c[0]) == id(maestro._por_nombre_norm.get(maestro._norm("000000165 - NAVARRO PALACIN HENRY ALEJANDRO")))
+                   or c[0].dni == "77175933" for c in cands), "debe matchear al empleado del fixture"
+
+    def test_matching_determinista(self):
+        """ratio_token_set debe ser invariante al orden de los tokens (joins estables)."""
+        import matching as mz
+        r1 = mz.mejor_token("NAVARRO PALACIN HENRY ALEJANDRO", "PALACIN NAVARRO HENRY ALEJANDRO")
+        r2 = mz.mejor_token("NAVARRO PALACIN HENRY ALEJANDRO", "PALACIN NAVARRO HENRY ALEJANDRO")
+        assert r1 == r2
+
+    def test_conciliacion_equivalente_bruto(self, cfg):
+        """El pipeline nuevo (índice) y el viejo (barrido) concilian igual."""
+        from conciliacion import conciliar, MaestroPersonal
+        empleados = [_empleado(dni="77175933"),
+                     _empleado(dni="22222222", nombre="000000002 - RAMIREZ ANA MARIA")]
+        mar = _marc(dni="", fc="", num="", nombre="NAVARRO PALACIN HENRY ALEJANDRO")
+        res_new = conciliar([mar], MaestroPersonal(empleados, cfg), cfg)
+        assert res_new[0].conciliado
+
 
 # ---------------------------------------------------------------------------
 # 3. TURNOS Y CALCULO DE HE

@@ -191,6 +191,8 @@ def _leer_rainbow_unico(ruta, cfg, avisos=None) -> list[Marcacion]:
         permitido = rc.get("permitido_si")
         incluir_denegados = cfg.get("marcaciones", {}).get("incluir_denegados", True)
         out: list[Marcacion] = []
+        _cache_fecha: dict = {}
+        _cache_hora: dict = {}
         for fila in ws.iter_rows(min_row=fila_enc + 1, values_only=True):
             empleado = _obtener(fila, idx["empleado"])
             if not empleado or not str(empleado).strip():
@@ -198,10 +200,18 @@ def _leer_rainbow_unico(ruta, cfg, avisos=None) -> list[Marcacion]:
             sit = str(_obtener(fila, idx["situacion"]) or "").strip()
             if permitido and sit and sit != permitido and not incluir_denegados:
                 continue
-            fecha = _obtener(fila, idx["fecha"])
-            hora = _obtener(fila, idx["hora"])
-            fechadt = normalizar_fecha(fecha)
-            horat = normalizar_hora(hora)
+            fecha_raw = _obtener(fila, idx["fecha"])
+            hora_raw = _obtener(fila, idx["hora"])
+            if fecha_raw in _cache_fecha:
+                fechadt = _cache_fecha[fecha_raw]
+            else:
+                fechadt = normalizar_fecha(fecha_raw)
+                _cache_fecha[fecha_raw] = fechadt
+            if hora_raw in _cache_hora:
+                horat = _cache_hora[hora_raw]
+            else:
+                horat = normalizar_hora(hora_raw)
+                _cache_hora[hora_raw] = horat
             if fechadt is None or horat is None:
                 continue
             mar = Marcacion(

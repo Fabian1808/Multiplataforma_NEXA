@@ -10,6 +10,7 @@ Estrategia:
 
 from __future__ import annotations
 
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
@@ -43,8 +44,10 @@ class MaestroPersonal:
         self._por_fotocheck: dict[str, list[ing.Empleado]] = defaultdict(list)
         self._por_numpersonal: dict[str, list[ing.Empleado]] = defaultdict(list)
         self._por_nombre_norm: dict[str, ing.Empleado] = {}
-        self._entradas_nombre: list = []
+        self._entradas_nombre: list = []   # (Empleado, nombre_norm, frozenset tokens)
+        self._indice_token: dict = {}      # token -> [índices en _entradas_nombre]
         self._cache_ratio: dict = {}
+        self._cache_nom_fuzzy: dict = {}
         self._build()
 
     def _norm(self, nombre: str) -> str:
@@ -53,7 +56,8 @@ class MaestroPersonal:
     def _build(self):
         alias_cfg = (self.cfg.get("conciliacion") or {}).get("matching") or {}
         alias_on = (alias_cfg.get("alias") or {}).get("activo", True)
-        self._entradas_nombre = []  # (Empleado, nombre_norm)
+        self._entradas_nombre = []  # (Empleado, nombre_norm, tokens)
+        indice_token: dict[str, list[int]] = defaultdict(list)
         for e in self.empleados:
             if e.dni:
                 self._por_dni[e.dni].append(e)
@@ -66,7 +70,12 @@ class MaestroPersonal:
             nn = self._norm(e.empleado)
             if nn:
                 self._por_nombre_norm[nn] = e
-                self._entradas_nombre.append((e, nn))
+                toks = frozenset(nn.split())
+                self._entradas_nombre.append((e, nn, toks))
+                idx = len(self._entradas_nombre) - 1
+                for tk in toks:
+                    indice_token[tk].append(idx)
+        self._indice_token = dict(indice_token)
         if alias_on:
             self._cache_ratio = {}
 
@@ -85,16 +94,28 @@ class MaestroPersonal:
 
     # -- búsqueda difusa ----------------------------------------------------
     def buscar_nombre(self, nombre_original: str, umbral: float) -> list[tuple[ing.Empleado, float]]:
-        nn = self._norm(nombre_original)
+        nn = self._cache_nom_fuzzy.get(nombre_original)
+        if nn is None:
+            nn = self._norm(nombre_original)
+            self._cache_nom_fuzzy[nombre_original] = nn
         if not nn:
             return []
         # exacto primero
         emp = self._por_nombre_norm.get(nn)
         if emp:
             return [(emp, 100.0)]
-        # difuso sobre nombres normalizados
+        # A/B temporal (FASE 3): si HEM_FUZZY_BRUTE=1 se fuerza el barrido
+        # completo original para verificar equivalencia con el índice invertido.
+        if os.environ.get("HEM_FUZZY_BRUTE") == "1":
+            return self._buscar_nombre_bruto(nn, umbral)
+        # índice invertido de tokens: solo candidatos que comparten >=1 token
+        # (evita 16k comparaciones SequenceMatcher por nombre sin coincidencia).
+        candidatos = set()
+        for tk in nn.split():
+            candidatos.update(self._indice_token.get(tk, ()))
         resultados = []
-        for emp, target in self._entradas_nombre:
+        for idx in sorted(candidatos):
+            e, target, _toks = self._entradas_nombre[idx]
             key = (nn, target)
             if key in self._cache_ratio:
                 r = self._cache_ratio[key]
@@ -102,13 +123,34 @@ class MaestroPersonal:
                 r = mz.mejor_token(nn, target)
                 self._cache_ratio[key] = r
             if r >= umbral:
-                resultados.append((emp, r))
+                resultados.append((e, r))
         vistos = {}
         unicos = []
-        for emp, r in resultados:
-            if id(emp) not in vistos:
-                vistos[id(emp)] = True
-                unicos.append((emp, r))
+        for emp_rc, r in resultados:
+            if id(emp_rc) not in vistos:
+                vistos[id(emp_rc)] = True
+                unicos.append((emp_rc, r))
+        unicos.sort(key=lambda x: x[1], reverse=True)
+        return unicos[:5]
+
+    def _buscar_nombre_bruto(self, nn: str, umbral: float):
+        """Barrido original (antes de FASE 3): compara contra todos los nombres."""
+        resultados = []
+        for e, target, _toks in self._entradas_nombre:
+            key = (nn, target)
+            if key in self._cache_ratio:
+                r = self._cache_ratio[key]
+            else:
+                r = mz.mejor_token(nn, target)
+                self._cache_ratio[key] = r
+            if r >= umbral:
+                resultados.append((e, r))
+        vistos = {}
+        unicos = []
+        for emp_rc, r in resultados:
+            if id(emp_rc) not in vistos:
+                vistos[id(emp_rc)] = True
+                unicos.append((emp_rc, r))
         unicos.sort(key=lambda x: x[1], reverse=True)
         return unicos[:5]
 

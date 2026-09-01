@@ -209,6 +209,24 @@ def create_app() -> tuple[QApplication, "MainWindow"]:
     app.setApplicationVersion(__version__)
     app.setStyle("Fusion")
 
+    # Esperar hilos de trabajo de plugins (p.ej. cálculo/exportación de Horas
+    # Extras Masiva) antes de cerrar: evita el abort fatal de Qt
+    # "QThread: Destroyed while thread is still running" al salir con un
+    # proceso en curso.
+    def _esperar_hilos_al_cerrar() -> None:
+        try:
+            import importlib, os, sys as _sys
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            gui_dir = os.path.join(root, "plugins", "horas_extras_masiva", "gui")
+            if os.path.isfile(os.path.join(gui_dir, "thread_registry.py")):
+                if gui_dir not in _sys.path:
+                    _sys.path.insert(0, gui_dir)
+                importlib.import_module("thread_registry").esperar_hilos_activos()
+        except Exception:
+            pass
+
+    app.aboutToQuit.connect(_esperar_hilos_al_cerrar)
+
     # Ícono de ventana/taskbar (logo con transparencia)
     icon = _app_icon()
     if icon is not None:
@@ -236,6 +254,32 @@ def create_app() -> tuple[QApplication, "MainWindow"]:
 def main() -> None:
     setup_logging()
     logger.info("Iniciando %s v%s", __app_name__, __version__)
+
+    # Excepción global no capturada (FASE 8): se registra en el log para
+    # diagnóstico y se muestra un aviso no bloqueante al usuario en lugar de
+    # terminar en silencio o cerrarse a medias.
+    def _excepthook(exc_type, exc, tb):
+        logger.critical("Excepción no capturada", exc_info=(exc_type, exc, tb))
+        try:
+            from PySide6.QtCore import QTimer
+            from PySide6.QtWidgets import QApplication, QMessageBox
+
+            def _mostrar():
+                dlg = QMessageBox(QMessageBox.Icon.Critical, "Error inesperado",
+                                  "Ocurrió un error inesperado.\n\n"
+                                  "Los detalles ya quedaron registrados.\n\n" + str(exc))
+                dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
+                dlg.exec()
+
+            app = QApplication.instance()
+            if app is not None:
+                QTimer.singleShot(0, _mostrar)
+            else:
+                _mostrar()
+        except Exception:
+            pass
+
+    sys.excepthook = _excepthook
 
     mutex = ctypes.windll.kernel32.CreateMutexW(None, False, MUTEX_NAME)
     last_error = ctypes.windll.kernel32.GetLastError()

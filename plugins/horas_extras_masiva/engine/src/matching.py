@@ -40,7 +40,10 @@ def ratio_token_set(a: str, b: str) -> float:
     if not inter_set:
         base = 0.0
     else:
-        base = SequenceMatcher(None, " ".join(inter_set), " ".join(menor)).ratio() * 100.0
+        # Orden estable para garantizar determinismo: el join sobre un set
+        # depende del hash de los strings (PYTHONHASHSEED) y desordenaba la
+        # clasificación difusa entre corridas de la misma entrada.
+        base = SequenceMatcher(None, " ".join(sorted(inter_set)), " ".join(menor)).ratio() * 100.0
     # penalización por tokens que sobran (token parciales)
     sobra = len(set(interseccion) - menor_set) + len(menor_set - set(interseccion))
     penal = max(0.0, (len(menor) - len(inter_set)) * 8.0)
