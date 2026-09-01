@@ -25,7 +25,7 @@
     ]
   },
   "relatorio": {
-    "hoja": "Sheet1",
+    "hoja": null,
     "fila_encabezado": 1,
     "columnas": {
       "empresa": "Empresa",

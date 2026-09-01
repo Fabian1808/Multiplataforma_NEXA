@@ -42,7 +42,7 @@ DEFAULT_CONFIG: dict = {
     # INGESTA — RELATORIO (maestro de personal). Columna -> índice/alias.
     # ------------------------------------------------------------------
     "relatorio": {
-        "hoja": "Sheet1",
+        "hoja": None,  # None = detectar hoja con la columna Empleado / primera con datos
         "fila_encabezado": 1,
         "columnas": {
             "empresa": "Empresa",

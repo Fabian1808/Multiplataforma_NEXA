@@ -31,18 +31,53 @@ class IngestaError(Exception):
 # ---------------------------------------------------------------------------
 # Helpers de hoja/encabezados
 # ---------------------------------------------------------------------------
-def _elegir_hoja(wb, nombre: str | None):
-    if nombre:
-        if nombre not in wb.sheetnames:
-            raise IngestaError("El Excel no tiene la hoja '%s'. Hojas: %s"
-                               % (nombre, ", ".join(wb.sheetnames)))
+def _elegir_hoja(wb, nombre: str | None, avisos: list | None = None,
+                 columnas_esperadas: tuple | list | None = None,
+                 fila_encabezado: int = 1):
+    """Elige la hoja a leer.
+
+    - Si `nombre` existe -> la usa.
+    - Si `nombre` NO se configuró (None) -> elige la hoja con más columnas
+      esperadas (si se dieron); si no hay ninguna, la primera con datos.
+    - Si `nombre` se configuró pero NO existe -> vuelve a la misma heurística
+      (hoja con más columnas esperadas / primera con datos) y lo registra como
+      aviso, porque el formato de cada empresa varía.
+    """
+    def _candidata():
+        if columnas_esperadas:
+            mejor, mejor_score = None, -1
+            for sn in wb.sheetnames:
+                ws = wb[sn]
+                if not (ws.max_row and ws.max_column):
+                    continue
+                mapa = {}
+                try:
+                    mapa = _mapa_encabezados(ws, fila_encabezado)
+                except Exception:
+                    pass
+                score = sum(1 for c in columnas_esperadas
+                            if normalizar_texto(c) in mapa)
+                if score > mejor_score:
+                    mejor, mejor_score = ws, score
+            if mejor is not None and mejor_score > 0:
+                return mejor
+        for sn in wb.sheetnames:
+            ws = wb[sn]
+            if ws.max_row and ws.max_column:
+                return ws
+        return None
+
+    if nombre and nombre in wb.sheetnames:
         return wb[nombre]
-    # primera hoja no vacía
-    for sn in wb.sheetnames:
-        ws = wb[sn]
-        if ws.max_row and ws.max_column:
-            return ws
-    raise IngestaError("El Excel no tiene hojas con datos.")
+    ws = _candidata()
+    if ws is None:
+        raise IngestaError("El Excel no tiene hojas con datos.")
+    if nombre and avisos is not None:
+        avisos.append(
+            "El archivo no tiene la hoja '%s' (hojas: %s); se usó '%s'."
+            % (nombre, ", ".join(wb.sheetnames), ws.title)
+        )
+    return ws
 
 
 def _mapa_encabezados(ws, fila_encabezado: int) -> dict[str, int]:
@@ -134,7 +169,7 @@ def _leer_rainbow_unico(ruta, cfg, avisos=None) -> list[Marcacion]:
         raise IngestaError("No se pudo abrir Rainbow %s (%s). Verifica que sea un Excel real y que no esté abierto en otro programa."
                            % (os.path.basename(ruta), str(exc)[:120]))
     try:
-        ws = _elegir_hoja(wb, rc.get("hoja"))
+        ws = _elegir_hoja(wb, rc.get("hoja"), avisos)
         fila_enc = int(rc.get("fila_encabezado", 1))
         mapa = _mapa_encabezados(ws, fila_enc)
         idx = {
@@ -255,7 +290,11 @@ def leer_relatorio(ruta, cfg, avisos=None) -> list[Empleado]:
         raise IngestaError("No se pudo abrir el Relatorio %s (%s)."
                            % (os.path.basename(ruta), str(exc)[:120]))
     try:
-        ws = _elegir_hoja(wb, rc.get("hoja") or rc.get("hoja_relatorio"))
+        ws = _elegir_hoja(
+            wb, rc.get("hoja") or rc.get("hoja_relatorio"), avisos,
+            columnas_esperadas=(cols_cfg.get("empleado") or "Empleado",),
+            fila_encabezado=int(rc.get("fila_encabezado", 1)),
+        )
         fila_enc = int(rc.get("fila_encabezado", 1))
         mapa = _mapa_encabezados(ws, fila_enc)
         # índice por clave configurada
@@ -346,7 +385,7 @@ def leer_tarifas(ruta, cfg, avisos=None) -> list[Tarifa]:
     except Exception as exc:
         raise IngestaError("No se pudo abrir TARIFAS %s (%s)." % (os.path.basename(ruta), str(exc)[:120]))
     try:
-        ws = _elegir_hoja(wb, tc.get("hoja"))
+        ws = _elegir_hoja(wb, tc.get("hoja"), avisos)
         fila_enc = int(tc.get("fila_encabezado", 1))
         mapa = _mapa_encabezados(ws, fila_enc)
         idx = {
@@ -435,7 +474,7 @@ def leer_areas(ruta, cfg, avisos=None) -> list[Area]:
     except Exception:
         return []
     try:
-        ws = _elegir_hoja(wb, ac.get("hoja"))
+        ws = _elegir_hoja(wb, ac.get("hoja"), avisos)
         mapa = _mapa_encabezados(ws, int(ac.get("fila_encabezado", 1)))
         idx = {
             "titulo": _col(mapa, ac, ac.get("col_titulo")),
@@ -467,7 +506,7 @@ def leer_gerencias(ruta, cfg, avisos=None) -> list[Gerencia]:
     except Exception:
         return []
     try:
-        ws = _elegir_hoja(wb, gc.get("hoja"))
+        ws = _elegir_hoja(wb, gc.get("hoja"), avisos)
         mapa = _mapa_encabezados(ws, int(gc.get("fila_encabezado", 1)))
         idx = {
             "titulo": _col(mapa, gc, gc.get("col_titulo")),
