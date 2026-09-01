@@ -10,15 +10,20 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QMargins
+from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import (
     QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
     QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
-    QFrame, QHeaderView, QProgressBar,
+    QFrame, QHeaderView, QProgressBar, QScrollArea, QGridLayout,
+)
+from PySide6.QtCharts import (
+    QChart, QChartView, QBarSeries, QHorizontalBarSeries, QBarSet,
+    QBarCategoryAxis, QValueAxis, QPieSeries, QPieSlice,
 )
 
 from hub.ui.common.design import (
-    ACCENT, ERROR, WARNING, SUCCESS, Theme, NEXAStyles, KPIWidget, get_font,
+    ACCENT, INFO, SUCCESS, WARNING, ERROR, Theme, NEXAStyles, KPIWidget, get_font,
 )
 
 # ruta al motor
@@ -105,6 +110,7 @@ class HorasExtrasMasivaWidget(QWidget):
         self._tabs = QTabWidget()
         self._tabs.setStyleSheet("QTabWidget::pane{border:none;}")
         self._tabs.addTab(self._build_tab_proceso(), "Proceso")
+        self._tabs.addTab(self._build_tab_dashboard(), "Dashboard")
         self._tabs.addTab(self._build_tab_detalle(), "Detalle")
         root.addWidget(self._tabs, 1)
 
@@ -199,6 +205,143 @@ class HorasExtrasMasivaWidget(QWidget):
         lay.addLayout(tops)
         lay.addStretch()
         return tab
+
+    def _build_tab_dashboard(self) -> QWidget:
+        tab = QWidget()
+        lay = QVBoxLayout(tab)
+        lay.setContentsMargins(0, 12, 0, 0)
+        lay.setSpacing(12)
+
+        head = QHBoxLayout()
+        self._dash_titulo = self._label(
+            "Ejecute 'Calcular Horas Extras Masiva' para visualizar el dashboard.", 12)
+        head.addWidget(self._dash_titulo)
+        head.addStretch()
+        lay.addLayout(head)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea{background: transparent;}")
+
+        cont = QWidget()
+        grid = QGridLayout(cont)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(14)
+
+        # 4 paneles: TOP trabajadores (monto), por tipo de hora (horas),
+        # por turno (horas), por empresa (monto)
+        self._chart_top_trab = self._chart_view()
+        self._chart_tipo = self._chart_view()
+        self._chart_turno = self._chart_view()
+        self._chart_empresa = self._chart_view()
+
+        grid.addWidget(self._env_card("TOP 10 trabajadores por monto (S/)", self._chart_top_trab), 0, 0)
+        grid.addWidget(self._env_card("Distribución por tipo de hora (h)", self._chart_tipo), 0, 1)
+        grid.addWidget(self._env_card("Distribución por turno (h)", self._chart_turno), 1, 0)
+        grid.addWidget(self._env_card("Distribución por empresa (monto S/)", self._chart_empresa), 1, 1)
+
+        scroll.setWidget(cont)
+        lay.addWidget(scroll, 1)
+        self._dash_grid = grid
+        return tab
+
+    def _chart_view(self) -> QChartView:
+        chart = QChart()
+        chart.setBackgroundVisible(False)
+        chart.setPlotAreaBackgroundVisible(False)
+        chart.setMargins(QMargins(0, 0, 0, 0))
+        view = QChartView(chart)
+        view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        view.setMinimumHeight(300)
+        return view
+
+    def _style_chart(self, chart: QChart, texto: str):
+        chart.setTitle(texto)
+        tf = QFont("Segoe UI", 12)
+        tf.setBold(True)
+        chart.setTitleFont(tf)
+        chart.setTitleBrush(QColor(Theme.text()))
+        chart.legend().setVisible(True)
+        chart.legend().setLabelColor(QColor(Theme.text_secondary()))
+        chart.legend().setFont(QFont("Segoe UI", 10))
+        return chart
+
+    # ---- constructores de gráficos ------------------------------------
+    def _grafico_barras_h(self, labels, valores, color):
+        """Barras horizontales (uso para TOP con nombres largos)."""
+        chart = QChart()
+        self._style_chart(chart, "")
+        chart.legend().setVisible(False)
+        series = QHorizontalBarSeries()
+        set_b = QBarSet("")
+        set_b.setColor(QColor(color))
+        ordered = list(reversed(list(zip(labels, valores))))
+        cat = []
+        for lbl, _v in ordered:
+            set_b.append(float(_v))
+            cat.append(str(lbl))
+        series.append(set_b)
+        chart.addSeries(series)
+        ax_y = QBarCategoryAxis()
+        ax_y.append(cat)
+        ax_y.setLabelsFont(QFont("Segoe UI", 9))
+        ax_y.setLabelsColor(QColor(Theme.text_secondary()))
+        chart.addAxis(ax_y, Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(ax_y)
+        ax_x = QValueAxis()
+        ax_x.setLabelsFont(QFont("Segoe UI", 9))
+        ax_x.setLabelsColor(QColor(Theme.text_secondary()))
+        ax_x.setLabelFormat("%.0f")
+        chart.addAxis(ax_x, Qt.AlignmentFlag.AlignBottom)
+        series.attachAxis(ax_x)
+        return chart
+
+    def _grafico_barras_v(self, labels, valores, color, sufijo=""):
+        chart = QChart()
+        self._style_chart(chart, "")
+        chart.legend().setVisible(False)
+        series = QBarSeries()
+        set_b = QBarSet("")
+        set_b.setColor(QColor(color))
+        cat = []
+        for lbl, v in zip(labels, valores):
+            set_b.append(float(v))
+            cat.append(str(lbl))
+        series.append(set_b)
+        chart.addSeries(series)
+        ax_x = QBarCategoryAxis()
+        ax_x.append(cat)
+        ax_x.setLabelsFont(QFont("Segoe UI", 9))
+        ax_x.setLabelsColor(QColor(Theme.text_secondary()))
+        chart.addAxis(ax_x, Qt.AlignmentFlag.AlignBottom)
+        series.attachAxis(ax_x)
+        ax_y = QValueAxis()
+        ax_y.setLabelsFont(QFont("Segoe UI", 9))
+        ax_y.setLabelsColor(QColor(Theme.text_secondary()))
+        ax_y.setLabelFormat("%.0f" + sufijo)
+        chart.addAxis(ax_y, Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(ax_y)
+        return chart
+
+    def _grafico_torta(self, labels, valores):
+        chart = QChart()
+        self._style_chart(chart, "")
+        serie = QPieSeries()
+        serie.setHoleSize(0.35)
+        serie.setPieSize(0.72)
+        serie.setLabelsVisible(True)
+        serie.setLabelsPosition(QPieSlice.LabelPosition.LabelOutside)
+        paleta = [ACCENT, INFO, SUCCESS, WARNING, ERROR,
+                  "#7C3AED", "#0EA5E9", "#DB2777", "#059669", "#D97706"]
+        for i, (lbl, v) in enumerate(zip(labels, valores)):
+            sl = serie.append(f"{lbl} ({v:g})", float(v))
+            sl.setColor(QColor(paleta[i % len(paleta)]))
+            sl.setLabelVisible(True)
+            sl.setLabelColor(QColor(Theme.text_secondary()))
+        chart.addSeries(serie)
+        chart.legend().setVisible(False)
+        return chart
 
     def _build_tab_detalle(self) -> QWidget:
         tab = QWidget()
@@ -324,6 +467,7 @@ class HorasExtrasMasivaWidget(QWidget):
         self._cfg = getattr(self._worker, "cfg", None)
         self._render_kpis()
         self._render_tops()
+        self._render_dashboard()
         self._cargar_tabla_detalle()
         self.btn_exportar.setEnabled(True)
         self.btn_exportar_proceso.setEnabled(True)
@@ -369,6 +513,42 @@ class HorasExtrasMasivaWidget(QWidget):
             tabla.setItem(i, 0, QTableWidgetItem(str(texto)))
             tabla.setItem(i, 1, QTableWidgetItem(str(v["horas"])))
             tabla.setItem(i, 2, QTableWidgetItem(str(v["monto"])))
+
+    def _render_dashboard(self):
+        if not self._resultado:
+            return
+        import dashboard
+        an = dashboard.Analisis(self._resultado)
+
+        # TOP 10 trabajadores por monto (barras horizontales)
+        top_trab = an.top("trabajador")
+        chart = self._grafico_barras_h(
+            [t[0] for t in top_trab][:10], [float(t[1]["monto"]) for t in top_trab][:10], ACCENT)
+        chart.setTitle("TOP 10 trabajadores por monto (S/)")
+        self._chart_top_trab.setChart(chart)
+
+        # Distribución por tipo de hora (torta, según horas)
+        por_tipo = an.por_tipo
+        labels_t = [str(k) for k in por_tipo.keys()]
+        vals_t = [float(v["horas"]) for v in por_tipo.values()]
+        self._chart_tipo.setChart(self._grafico_torta(labels_t, vals_t) if labels_t else QChart())
+
+        # Distribución por turno (barras verticales, horas)
+        por_turno = an.por_turno
+        self._chart_turno.setChart(self._grafico_barras_v(
+            [str(k) for k in por_turno.keys()],
+            [float(v["horas"]) for v in por_turno.values()], INFO))
+
+        # Distribución por empresa (barras verticales, monto)
+        top_emp = an.top("empresa")
+        self._chart_empresa.setChart(self._grafico_barras_v(
+            [str(e[0]) for e in top_emp][:10],
+            [float(e[1]["monto"]) for e in top_emp][:10], SUCCESS))
+
+        self._dash_titulo.setText(
+            f"Dashboard — {an.kpis['n_detalle']} registros, "
+            f"{an.kpis['horas_totales']} h de HH.EE., "
+            f"S/ {an.kpis['monto_total']} de monto total.")
 
     def _cargar_tabla_detalle(self):
         if not self._resultado:
