@@ -37,6 +37,18 @@ Dependencias (definidas en `pyproject.toml`): `PySide6>=6.8`, `openpyxl`,
 Iniciar_NEXA.bat          :: lanza .venv\Scripts\pythonw.exe -m hub.app
 ```
 
+## Actualizar código (para ver los últimos cambios)
+
+`Iniciar_NEXA.bat` solo abre la aplicación; no actualiza el código. Para traer
+los últimos cambios de GitHub (correcciones, nuevas apps/plugins):
+
+```powershell
+git pull
+.\.venv\Scripts\python.exe -m pip install -e .   # si cambiaron dependencias
+```
+
+Si `git pull` falla por cambios locales sin commitear, resuelve/descarta primero.
+
 O desde consola (con salida visible en terminal):
 
 ```powershell

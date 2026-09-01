@@ -21,7 +21,7 @@ automatización, consulta una guía, pide ayuda o propone una nueva solución.
 - Lanzador de herramientas externas (ejecutables independientes) con descarga
   en segundo plano desde recursos locales/compartidos. Ver
   [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
-- **86 tests** verificados con `pytest`.
+- **114 tests** verificados con `pytest`.
 
 ## Inicio rápido en Windows
 
@@ -39,13 +39,33 @@ Iniciar_NEXA.bat
 .venv\Scripts\python.exe -m hub.app
 
 :: 4) Tests
-.venv\Scripts\python.exe -m pytest -q   (86 passed)
+.venv\Scripts\python.exe -m pytest -q   (114 passed)
 
 :: 5) Compilar ejecutable
 Construir_Ejecutable.bat                 (usa NEXA_Productivity_Hub.spec)
 ```
 
 Requiere **Python 3.11+** en el PATH.
+
+## Actualizar a la última versión
+
+Para ver en tu máquina los últimos cambios publicados en GitHub (nuevas app,
+correcciones, plugins) — `Iniciar_NEXA.bat` solo abre la aplicación, **no**
+actualiza el código:
+
+```powershell
+:: 1) Traer los últimos cambios de GitHub
+git pull
+
+:: 2) Si se agregaron dependencias o plugins nuevos, refrescar el entorno
+.venv\Scripts\python.exe -m pip install -e .
+
+:: 3) Iniciar la app
+Iniciar_NEXA.bat        (o NEXA.bat)
+```
+
+> Si `git pull` reporta "local changes would be overwritten", guarda o descarta
+> los cambios locales antes de actualizar (no dejes el repo sucio).
 
 ## Documentación
 
@@ -68,8 +88,8 @@ hub/
                          notifications, workflow, reports, app_launcher...)
   infrastructure/        database.py (sqlite con lock), logging_setup.py
   models/                Dataclasses (user, plugin, request, notification...)
-plugins/                 Herramientas embebidas (horas_extras, asistencia_masiva,
-                         dashboard_hhee, sap_automation, _template)
+plugins/                 Herramientas embebidas (horas_extras, horas_extras_masiva,
+                         asistencia_masiva, dashboard_hhee, sap_automation, _template)
 modules/                Integraciones de lenguaje/plataforma (excel, outlook, pdf, sap)
 tests/                   pytest (unit, smoke, integration)
 assets/                  logos oficiales (logo_brand.png, logo_taskbar.{png,ico})
