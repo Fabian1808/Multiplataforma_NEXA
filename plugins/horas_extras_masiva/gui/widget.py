@@ -47,6 +47,27 @@ class _CalculoThread(QThread):
             self.finalizado.emit(False, str(exc) + "\n" + traceback.format_exc())
 
 
+class _ExportarThread(QThread):
+    """Llama a exportacion en un hilo para no congelar la UI con datos grandes."""
+
+    finalizado = Signal(bool, str)
+
+    def __init__(self, resultado, cfg, ruta, parent=None):
+        super().__init__(parent)
+        self.resultado = resultado
+        self.cfg = cfg
+        self.ruta = ruta
+
+    def run(self):
+        try:
+            import exportacion
+            exportacion.exportar(self.resultado, self.ruta, self.cfg or {})
+            self.finalizado.emit(True, self.ruta)
+        except Exception as exc:  # noqa
+            import traceback
+            self.finalizado.emit(False, str(exc) + "\n" + traceback.format_exc())
+
+
 class HorasExtrasMasivaWidget(QWidget):
     """Widget embebido que expone create_widget() para el PluginRegistry."""
 
@@ -376,15 +397,32 @@ class HorasExtrasMasivaWidget(QWidget):
             self, "Guardar reporte", "Horas_Extras_Masiva.xlsx", "Excel (*.xlsx)")
         if not ruta:
             return
-        try:
-            import exportacion
-            exportacion.exportar(self._resultado, ruta, self._cfg or {})
+        # Deshabilitar botones y bloquear la tabla mientras se escribe el Excel
+        for btn in (getattr(self, "btn_exportar", None),
+                    getattr(self, "btn_exportar_proceso", None),
+                    getattr(self, "btn_calcular", None)):
+            if btn is not None:
+                btn.setEnabled(False)
+        self._status.setText("Generando Excel…")
+        self._progreso.setRange(0, 0)
+        self._progreso.show()
+        self._worker_exp = _ExportarThread(self._resultado, self._cfg, ruta, self)
+        self._worker_exp.finalizado.connect(self._on_exportado)
+        self._worker_exp.start()
+
+    def _on_exportado(self, ok, msg):
+        self._progreso.hide()
+        self.btn_calcular.setEnabled(True)
+        self.btn_exportar.setEnabled(self._resultado is not None)
+        self.btn_exportar_proceso.setEnabled(self._resultado is not None)
+        if ok:
+            self._status.setText("Reporte exportado correctamente.")
             QMessageBox.information(self, "Éxito",
-                                    f"Reporte exportado en:\n{ruta}")
-        except Exception as exc:  # noqa
-            import traceback
+                                    f"Reporte exportado en:\n{msg}")
+        else:
+            self._status.setText("Error al exportar.")
             QMessageBox.critical(self, "Error",
-                                 "No se pudo exportar:\n%s" % exc)
+                                 "No se pudo exportar:\n%s" % msg)
 
 
 def create_widget(parent: QWidget | None = None) -> QWidget:

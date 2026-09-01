@@ -27,6 +27,7 @@ HEADER_FONT = "FFFFFF"
 ALT_FILL = "FFF3EC"
 THIN = Side(style="thin", color="DDDDDD")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+_ALT_FILL_OBJ = PatternFill("solid", fgColor=ALT_FILL)  # reutilizable (evita recrear por fila)
 
 
 def _estilo_encabezado(ws, ncols: int, fila: int = 1) -> None:
@@ -40,23 +41,34 @@ def _estilo_encabezado(ws, ncols: int, fila: int = 1) -> None:
 
 
 def _autoancho(ws, ncols: int, extra: int = 2) -> None:
+    """Calcula el ancho de columnas en UNA pasada (no re-itera celdas)."""
+    maxlen = [0] * (ncols + 1)
+    for fila in ws.iter_rows(min_row=1, max_col=ncols):
+        for cel in fila:
+            v = cel.value
+            if v is not None:
+                ln = len(str(v))
+                if ln > maxlen[cel.column]:
+                    maxlen[cel.column] = ln
     for c in range(1, ncols + 1):
-        maxlen = 0
-        for row in ws.iter_rows(min_col=c, max_col=c):
-            for cel in row:
-                v = cel.value
-                if v is not None:
-                    maxlen = max(maxlen, len(str(v)))
-        ws.column_dimensions[get_column_letter(c)].width = min(maxlen + extra, 60)
+        ws.column_dimensions[get_column_letter(c)].width = min(maxlen[c] + extra, 60)
 
 
 def _escribir_filas(ws, headers: list, filas: list, inicio: int = 2) -> None:
+    """Escribe filas con borde y relleno alternado, reutilizando el fill.
+
+    Si hay muchas filas (reporte grande), se omite el estilo por celda para
+    evitar lentitud/memoria excesiva al escribir el Excel.
+    """
+    estilizar = len(filas) <= 20000
     for i, fila in enumerate(filas, start=inicio):
+        alternar = estilizar and i % 2 == 0
         for j, valor in enumerate(fila, start=1):
             cel = ws.cell(row=i, column=j, value=valor)
-            cel.border = BORDER
-            if i % 2 == 0:
-                cel.fill = PatternFill("solid", fgColor=ALT_FILL)
+            if estilizar:
+                cel.border = BORDER
+                if alternar:
+                    cel.fill = _ALT_FILL_OBJ
 
 
 def _mon(dec, cfg):
