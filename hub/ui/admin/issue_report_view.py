@@ -43,30 +43,33 @@ class IssueReportView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
+        self._label_refs: list[QLabel] = []
         header_row = QHBoxLayout()
         header_icon = Icon("flag", 20)
         header_icon.set_color(ACCENT)
         header_row.addWidget(header_icon)
-        header = QLabel("Reportar Problema")
-        header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {Theme.text()};")
-        header_row.addWidget(header, stretch=1)
+        self._header = QLabel("Reportar Problema")
+        self._header.setFont(get_font(20, bold=True))
+        self._header.setStyleSheet(f"color: {Theme.text()};")
+        header_row.addWidget(self._header, stretch=1)
         layout.addLayout(header_row)
 
-        subtitle = QLabel("Describe el problema que encontraste para que podamos solucionarlo.")
-        subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
-        layout.addWidget(subtitle)
+        self._subtitle = QLabel("Describe el problema que encontraste para que podamos solucionarlo.")
+        self._subtitle.setFont(get_font(12))
+        self._subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
+        self._label_refs.append(self._subtitle)
+        layout.addWidget(self._subtitle)
 
-        form = QFrame()
-        form.setStyleSheet(NEXAStyles.card())
-        form_layout = QVBoxLayout(form)
+        self._form = QFrame()
+        self._form.setStyleSheet(NEXAStyles.card())
+        form_layout = QVBoxLayout(self._form)
         form_layout.setSpacing(12)
 
         if self._plugin_name:
             lbl = QLabel(f"Herramienta: {self._plugin_name}")
             lbl.setFont(get_font(12, bold=True))
             lbl.setStyleSheet(f"color: {Theme.text()};")
+            self._label_refs.append(lbl)
             form_layout.addWidget(lbl)
 
         self._fields: dict[str, QWidget] = {}
@@ -79,6 +82,7 @@ class IssueReportView(QWidget):
             lbl = QLabel(label_text)
             lbl.setFont(get_font(12, bold=True))
             lbl.setStyleSheet(f"color: {Theme.text()};")
+            self._label_refs.append(lbl)
             form_layout.addWidget(lbl)
             inp = QLineEdit()
             inp.setFont(get_font(12))
@@ -89,6 +93,7 @@ class IssueReportView(QWidget):
         lbl = QLabel("¿Qué pasó en realidad?")
         lbl.setFont(get_font(12, bold=True))
         lbl.setStyleSheet(f"color: {Theme.text()};")
+        self._label_refs.append(lbl)
         form_layout.addWidget(lbl)
         self._what_happened = QTextEdit()
         self._what_happened.setFont(get_font(12))
@@ -99,6 +104,7 @@ class IssueReportView(QWidget):
         lbl = QLabel("Pasos para reproducir (opcional)")
         lbl.setFont(get_font(12, bold=True))
         lbl.setStyleSheet(f"color: {Theme.text()};")
+        self._label_refs.append(lbl)
         form_layout.addWidget(lbl)
         self._steps = QTextEdit()
         self._steps.setFont(get_font(12))
@@ -106,15 +112,15 @@ class IssueReportView(QWidget):
         self._steps.setMaximumHeight(80)
         form_layout.addWidget(self._steps)
 
-        layout.addWidget(form)
+        layout.addWidget(self._form)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        submit_btn = QPushButton("Enviar Reporte")
-        submit_btn.setStyleSheet(NEXAStyles.primary_button())
-        submit_btn.setFixedWidth(200)
-        submit_btn.clicked.connect(self._on_submit)
-        btn_row.addWidget(submit_btn)
+        self._submit_btn = QPushButton("Enviar Reporte")
+        self._submit_btn.setStyleSheet(NEXAStyles.primary_button())
+        self._submit_btn.setFixedWidth(200)
+        self._submit_btn.clicked.connect(self._on_submit)
+        btn_row.addWidget(self._submit_btn)
         layout.addLayout(btn_row)
 
         layout.addStretch()
@@ -122,6 +128,22 @@ class IssueReportView(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(scroll)
+
+    def refresh_style(self) -> None:
+        """Re-aplica el tema activo (claro/oscuro) al formulario de reporte."""
+        self.setStyleSheet(f"QWidget {{ background-color: {Theme.bg()}; color: {Theme.text()}; }}")
+        self._header.setStyleSheet(f"color: {Theme.text()};")
+        for lbl in self._label_refs:
+            if lbl is self._subtitle:
+                lbl.setStyleSheet(f"color: {Theme.text_secondary()};")
+            else:
+                lbl.setStyleSheet(f"color: {Theme.text()};")
+        self._form.setStyleSheet(NEXAStyles.card())
+        for widget in self._fields.values():
+            widget.setStyleSheet(NEXAStyles.search_input())
+        self._what_happened.setStyleSheet(NEXAStyles.text_edit())
+        self._steps.setStyleSheet(NEXAStyles.text_edit())
+        self._submit_btn.setStyleSheet(NEXAStyles.primary_button())
 
     def _on_submit(self) -> None:
         data = {}

@@ -27,6 +27,9 @@ from hub.ui.common.design import (
     NEXAStyles,
     ACCENT,
     Icon,
+    SvgIcon,
+    plugin_icon,
+    PLUGIN_SVG,
     KPIWidget,
     PLUGIN_STATUS_BADGES,
     StatusBadge,
@@ -520,9 +523,11 @@ class AppViewer(QWidget):
                 logo_lbl.setStyleSheet("background: transparent; border: none;")
                 self._logo_layout.addWidget(logo_lbl, 0, Qt.AlignmentFlag.AlignCenter)
             else:
-                icon_lbl = Icon(desc.icon or "package", 28)
-                icon_lbl.set_color(ACCENT)
+                icon_lbl = plugin_icon(plugin_id, 28, ACCENT, desc.icon or "package")
                 self._logo_layout.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignCenter)
+        elif plugin_id in PLUGIN_SVG:
+            icon_lbl = plugin_icon(plugin_id, 30, ACCENT)
+            self._logo_layout.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignCenter)
         else:
             icon_lbl = Icon(desc.icon or "package", 28)
             icon_lbl.set_color(ACCENT)

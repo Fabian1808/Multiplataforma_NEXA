@@ -50,20 +50,22 @@ class AutomationProposalView(QWidget):
         header_icon = Icon("wrench", 20)
         header_icon.set_color(ACCENT)
         header_row.addWidget(header_icon)
-        header = QLabel("Proponer Automatización")
-        header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {Theme.text()};")
-        header_row.addWidget(header, stretch=1)
+        self._header = QLabel("Proponer Automatización")
+        self._header.setFont(get_font(20, bold=True))
+        self._header.setStyleSheet(f"color: {Theme.text()};")
+        header_row.addWidget(self._header, stretch=1)
         layout.addLayout(header_row)
 
-        subtitle = QLabel("Describe una tarea repetitiva y te ayudaremos a convertirla en una automatización.")
-        subtitle.setFont(get_font(12))
-        subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
-        layout.addWidget(subtitle)
+        self._label_refs: list[QLabel] = []
+        self._subtitle = QLabel("Describe una tarea repetitiva y te ayudaremos a convertirla en una automatización.")
+        self._subtitle.setFont(get_font(12))
+        self._subtitle.setStyleSheet(f"color: {Theme.text_secondary()};")
+        self._label_refs.append(self._subtitle)
+        layout.addWidget(self._subtitle)
 
-        form = QFrame()
-        form.setStyleSheet(NEXAStyles.card())
-        form_layout = QVBoxLayout(form)
+        self._form_card = QFrame()
+        self._form_card.setStyleSheet(NEXAStyles.card())
+        form_layout = QVBoxLayout(self._form_card)
         form_layout.setSpacing(12)
 
         self._fields: dict[str, QWidget] = {}
@@ -78,6 +80,7 @@ class AutomationProposalView(QWidget):
             lbl = QLabel(label_text)
             lbl.setFont(get_font(12, bold=True))
             lbl.setStyleSheet(f"color: {Theme.text()};")
+            self._label_refs.append(lbl)
             form_layout.addWidget(lbl)
             inp = QLineEdit()
             inp.setFont(get_font(12))
@@ -89,6 +92,7 @@ class AutomationProposalView(QWidget):
         lbl = QLabel("Pasos del proceso")
         lbl.setFont(get_font(12, bold=True))
         lbl.setStyleSheet(f"color: {Theme.text()};")
+        self._label_refs.append(lbl)
         form_layout.addWidget(lbl)
         self._steps = QTextEdit()
         self._steps.setFont(get_font(12))
@@ -99,22 +103,25 @@ class AutomationProposalView(QWidget):
         lbl = QLabel("Problemas actuales")
         lbl.setFont(get_font(12, bold=True))
         lbl.setStyleSheet(f"color: {Theme.text()};")
+        self._label_refs.append(lbl)
         form_layout.addWidget(lbl)
         self._problems = QTextEdit()
         self._problems.setFont(get_font(12))
         self._problems.setPlaceholderText("Describe los problemas o frustraciones actuales...")
         self._problems.setMaximumHeight(60)
         form_layout.addWidget(self._problems)
-        layout.addWidget(form)
+        layout.addWidget(self._form_card)
 
-        scoring_frame = QFrame()
-        scoring_frame.setStyleSheet(NEXAStyles.card())
-        scoring_layout = QVBoxLayout(scoring_frame)
+        self._scoring_card = QFrame()
+        self._scoring_card.setStyleSheet(NEXAStyles.card())
+        scoring_layout = QVBoxLayout(self._scoring_card)
         scoring_layout.setSpacing(8)
 
-        score_title = QLabel("Estimación de Impacto")
-        score_title.setFont(get_font(14, bold=True))
-        scoring_layout.addWidget(score_title)
+        self._score_title = QLabel("Estimación de Impacto")
+        self._score_title.setFont(get_font(14, bold=True))
+        self._score_title.setStyleSheet(f"color: {Theme.text()};")
+        self._label_refs.append(self._score_title)
+        scoring_layout.addWidget(self._score_title)
 
         time_row = QHBoxLayout()
         time_lbl = QLabel("Horas semanales estimadas:")
@@ -158,7 +165,7 @@ class AutomationProposalView(QWidget):
         self._score_detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scoring_layout.addWidget(self._score_detail)
 
-        layout.addWidget(scoring_frame)
+        layout.addWidget(self._scoring_card)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
@@ -175,6 +182,25 @@ class AutomationProposalView(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(scroll)
 
+        self._update_score()
+
+    def refresh_style(self) -> None:
+        """Re-aplica el tema activo (claro/oscuro) al formulario y la estimación."""
+        self.setStyleSheet(f"QWidget {{ background-color: {Theme.bg()}; color: {Theme.text()}; }}")
+        self._header.setStyleSheet(f"color: {Theme.text()};")
+        for lbl in self._label_refs:
+            if lbl is self._subtitle or lbl is self._score_detail:
+                lbl.setStyleSheet(f"color: {Theme.text_secondary()};")
+            else:
+                lbl.setStyleSheet(f"color: {Theme.text()};")
+        self._form_card.setStyleSheet(NEXAStyles.card())
+        self._scoring_card.setStyleSheet(NEXAStyles.card())
+        for key, widget in self._fields.items():
+            widget.setStyleSheet(NEXAStyles.search_input())
+        self._steps.setStyleSheet(NEXAStyles.text_edit())
+        self._problems.setStyleSheet(NEXAStyles.text_edit())
+        self._hours_label.setStyleSheet(f"color: {ACCENT};")
+        self._people_label.setStyleSheet(f"color: {ACCENT};")
         self._update_score()
 
     def _update_score(self) -> None:

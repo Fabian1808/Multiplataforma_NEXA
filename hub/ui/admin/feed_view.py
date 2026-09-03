@@ -21,12 +21,13 @@ from hub.ui.common.design import (
 
 class _PostCard(QFrame):
     """Tarjeta individual de una publicación con comentarios y likes inline."""
-    
+
     def __init__(self, post: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._post = post
         self._liked = False
         self._comments_visible = False
+        self._children_refresh: list = []
         self.setObjectName("card")
         self.setStyleSheet(NEXAStyles.card())
         self._setup_ui()
@@ -85,22 +86,22 @@ class _PostCard(QFrame):
         # --- Interaction Buttons (Like / Comment) ---
         bottom_row = QHBoxLayout()
         self._likes_count = self._post.get("likes_count", 0)
-        
+
         # Like Button
         self._like_btn = QPushButton(f"❤ Me gusta ({self._likes_count})")
         self._like_btn.setStyleSheet(self._get_like_style(False))
         self._like_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._like_btn.clicked.connect(self._toggle_like)
         bottom_row.addWidget(self._like_btn)
-        
+
         # Comment Button
         self._comments_count = self._post.get("comments_count", 0)
         self._comment_btn = QPushButton(f"💬 Comentar ({self._comments_count})")
-        self._comment_btn.setStyleSheet("border: none; color: #555555; font-size: 12px; font-weight: bold; padding: 4px 8px;")
+        self._comment_btn.setStyleSheet(self._action_btn_style())
         self._comment_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._comment_btn.clicked.connect(self._toggle_comments)
         bottom_row.addWidget(self._comment_btn)
-        
+
         bottom_row.addStretch()
         layout.addLayout(bottom_row)
 
@@ -108,40 +109,63 @@ class _PostCard(QFrame):
         self._comments_widget = QWidget()
         self._comments_layout = QVBoxLayout(self._comments_widget)
         self._comments_layout.setContentsMargins(0, 10, 0, 0)
-        
+
         # Input to add a new comment
         new_comment_lay = QHBoxLayout()
         self._new_comment_input = QLineEdit()
         self._new_comment_input.setPlaceholderText("Escribe un comentario...")
-        self._new_comment_input.setStyleSheet("border: 1px solid #CCCCCC; border-radius: 12px; padding: 6px 10px;")
         new_comment_lay.addWidget(self._new_comment_input)
-        
+
         send_btn = QPushButton("Enviar")
         send_btn.setStyleSheet(NEXAStyles.secondary_button())
         send_btn.clicked.connect(self._add_comment)
         new_comment_lay.addWidget(send_btn)
         self._comments_layout.addLayout(new_comment_lay)
-        
+
         # Load existing mock comments if any
+        self._mock_comment: QLabel | None = None
         if self._comments_count > 0:
             mock_comment = QLabel("<b>Juan Pérez:</b> Excelente aporte, gracias por compartir.")
-            mock_comment.setStyleSheet("background-color: #F0F2F5; border-radius: 8px; padding: 8px;")
             mock_comment.setWordWrap(True)
+            self._mock_comment = mock_comment
             self._comments_layout.addWidget(mock_comment)
-            
+
         self._comments_widget.setVisible(False)
         layout.addWidget(self._comments_widget)
 
+        self._refresh_children()
+
     def _get_like_style(self, liked: bool) -> str:
-        color = "#E0245E" if liked else "#555555" # Rojo o gris oscuro
+        color = "#E0245E" if liked else Theme.text_secondary()
         return f"border: none; color: {color}; font-size: 12px; font-weight: bold; padding: 4px 8px;"
+
+    def _action_btn_style(self) -> str:
+        return (f"border: none; color: {Theme.text_secondary()}; font-size: 12px;"
+                f" font-weight: bold; padding: 4px 8px;")
+
+    def _refresh_children(self) -> None:
+        """Re-aplica los estilos dependientes del tema a los widgets del card."""
+        self._like_btn.setStyleSheet(self._get_like_style(self._liked))
+        self._comment_btn.setStyleSheet(self._action_btn_style())
+        self._new_comment_input.setStyleSheet(NEXAStyles.search_input())
+        if self._mock_comment is not None:
+            self._mock_comment.setStyleSheet(
+                f"background-color: {Theme.hover_bg()}; border: 1px solid {Theme.border()};"
+                f" border-radius: 8px; padding: 8px; color: {Theme.text_secondary()};")
+        for w in self._children_refresh:
+            w.setStyleSheet(f"color: {Theme.text_secondary()}; background-color: {Theme.hover_bg()};"
+                            f" border-radius: 8px; padding: 8px;")
+
+    def refresh_style(self) -> None:
+        self.setStyleSheet(NEXAStyles.card())
+        self._refresh_children()
 
     def _toggle_like(self) -> None:
         self._liked = not self._liked
         self._likes_count += 1 if self._liked else -1
         self._like_btn.setText(f"❤ Me gusta ({self._likes_count})")
         self._like_btn.setStyleSheet(self._get_like_style(self._liked))
-        
+
         # Simular tooltip de quienes dieron like
         if self._likes_count > 0:
             self._like_btn.setToolTip("A ti y otras personas les gusta esto" if self._liked else "A otras personas les gusta esto")
@@ -156,13 +180,15 @@ class _PostCard(QFrame):
         text = self._new_comment_input.text().strip()
         if not text:
             return
-            
+
         # Add a new comment label
         comment_lbl = QLabel(f"<b>Tú:</b> {text}")
-        comment_lbl.setStyleSheet("background-color: #E3F2FD; border-radius: 8px; padding: 8px;")
+        comment_lbl.setStyleSheet(f"color: {Theme.text_secondary()}; background-color: {Theme.hover_bg()};"
+                                  f" border-radius: 8px; padding: 8px;")
         comment_lbl.setWordWrap(True)
+        self._children_refresh.append(comment_lbl)
         self._comments_layout.insertWidget(1, comment_lbl) # Insert below the input box
-        
+
         self._new_comment_input.clear()
         self._comments_count += 1
         self._comment_btn.setText(f"💬 Comentar ({self._comments_count})")
@@ -186,26 +212,24 @@ class FeedView(QWidget):
         header_icon = Icon("activity", 18)
         header_icon.set_color(ACCENT)
         header_row.addWidget(header_icon)
-        header = QLabel("Comunidad NEXA")
-        header.setFont(get_font(18, bold=True))
-        header.setStyleSheet(f"color: {Theme.text()};")
-        header_row.addWidget(header, stretch=1)
+        self._header = QLabel("Comunidad NEXA")
+        self._header.setFont(get_font(18, bold=True))
+        self._header.setStyleSheet(f"color: {Theme.text()};")
+        header_row.addWidget(self._header, stretch=1)
 
         self._type_filter = QComboBox()
         self._type_filter.addItems(["Todas", "General", "Logro", "Noticia", "Tutorial", "Pregunta"])
-        self._type_filter.setStyleSheet(NEXAStyles.secondary_button())
         self._type_filter.setFixedWidth(140)
         header_row.addWidget(self._type_filter)
         layout.addLayout(header_row)
 
-        create_frame = QFrame()
-        create_frame.setStyleSheet(NEXAStyles.card())
-        create_layout = QVBoxLayout(create_frame)
+        self._create_frame = QFrame()
+        self._create_frame.setStyleSheet(NEXAStyles.card())
+        create_layout = QVBoxLayout(self._create_frame)
         create_layout.setSpacing(8)
         self._new_post_input = QTextEdit()
         self._new_post_input.setPlaceholderText("Comparte algo con la comunidad...")
         self._new_post_input.setMaximumHeight(80)
-        self._new_post_input.setStyleSheet("border: 1px solid #E0E0E0; border-radius: 6px; padding: 8px; font-size: 12px;")
         create_layout.addWidget(self._new_post_input)
         post_btn_row = QHBoxLayout()
         post_btn_row.addStretch()
@@ -214,19 +238,20 @@ class FeedView(QWidget):
         self._post_btn.setFixedWidth(120)
         post_btn_row.addWidget(self._post_btn)
         create_layout.addLayout(post_btn_row)
-        layout.addWidget(create_frame)
+        layout.addWidget(self._create_frame)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._posts_container = QWidget()
         self._posts_layout = QVBoxLayout(self._posts_container)
         self._posts_layout.setSpacing(12)
         self._posts_layout.setContentsMargins(0, 0, 0, 0)
-        scroll.setWidget(self._posts_container)
-        layout.addWidget(scroll, stretch=1)
+        self._scroll.setWidget(self._posts_container)
+        layout.addWidget(self._scroll, stretch=1)
 
     def set_posts(self, posts: list[dict]) -> None:
+        self._posts = posts
         while self._posts_layout.count():
             item = self._posts_layout.takeAt(0)
             if item.widget():
@@ -242,3 +267,17 @@ class FeedView(QWidget):
             empty.setStyleSheet(f"color: {Theme.text_muted()}; padding: 40px;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._posts_layout.addWidget(empty)
+
+    def refresh_style(self) -> None:
+        """Re-aplica el tema activo (claro/oscuro) a la vista y sus tarjetas."""
+        self.setStyleSheet(f"QWidget {{ background-color: {Theme.bg()}; color: {Theme.text()}; }}")
+        self._header.setStyleSheet(f"color: {Theme.text()};")
+        self._type_filter.setStyleSheet(NEXAStyles.combo_box())
+        self._create_frame.setStyleSheet(NEXAStyles.card())
+        self._new_post_input.setStyleSheet(NEXAStyles.text_edit())
+        self._post_btn.setStyleSheet(NEXAStyles.primary_button())
+        self._scroll.setStyleSheet(NEXAStyles.scroll_area())
+        for i in range(self._posts_layout.count()):
+            w = self._posts_layout.itemAt(i).widget()
+            if isinstance(w, _PostCard):
+                w.refresh_style()

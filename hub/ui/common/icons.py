@@ -572,33 +572,48 @@ class SvgIcon(QLabel):
 
     # Mapeo: nombre lógico -> nombre de archivo (sin extensión, case-insensitive)
     _FILE_MAP: dict[str, str] = {
-        "inicio":        "Inicio",
-        "catalogo":      "catalogo",
-        "buscar":        "buscar",
-        "propuestas":    "propuestas",
-        "solicitudes":   "Solicitudes",
-        "incidencias":   "incidencias",
-        "comunidad":     "Comunidad",
-        "reportes":      "Reportes",
-        "auditoria":     "Auditoria",
-        "usuarios":      "Gestion_de_usuarios",
-        "sun":           "claro",
-        "moon":          "oscuro",
+        "inicio":             "Inicio",
+        "catalogo":           "catalogo",
+        "buscar":             "buscar",
+        "propuestas":         "propuestas",
+        "solicitudes":        "Solicitudes",
+        "incidencias":        "incidencias",
+        "comunidad":          "Comunidad",
+        "reportes":           "Reportes",
+        "auditoria":          "Auditoria",
+        "usuarios":           "Gestion_de_usuarios",
+        "sun":                "claro",
+        "moon":               "oscuro",
+        # Módulos con icono SVG dedicado
+        "asistencia":         "Asistencia Masiva (Rainbow)",
+        "dashboard_hhee":     "Dashboard Horas Extras",
+        "horas_extras_masiva":"Horas Extras Masiva",
+        "sap_automation":     "Automatización Sap",
+        # Controles del menú lateral
+        "mostrar":            "mostrar",
+        "ocultar":            "ocultar",
     }
-    
+
     _FALLBACK_MAP: dict[str, str] = {
-        "inicio":        "house",
-        "catalogo":      "grid",
-        "buscar":        "search",
-        "propuestas":    "lightbulb",
-        "solicitudes":   "file-text",
-        "incidencias":   "alert-circle",
-        "comunidad":     "users-round",
-        "reportes":      "bar-chart",
-        "auditoria":     "shield-lock",
-        "usuarios":      "user-cog",
-        "sun":           "sun",
-        "moon":          "moon",
+        "inicio":             "house",
+        "catalogo":           "grid",
+        "buscar":             "search",
+        "propuestas":         "lightbulb",
+        "solicitudes":        "file-text",
+        "incidencias":        "alert-circle",
+        "comunidad":          "users-round",
+        "reportes":           "bar-chart",
+        "auditoria":          "shield-lock",
+        "usuarios":           "user-cog",
+        "sun":                "sun",
+        "moon":               "moon",
+        # Fallbacks para los módulos si faltara su SVG
+        "asistencia":         "clock",
+        "dashboard_hhee":     "bar-chart",
+        "horas_extras_masiva":"zap",
+        "sap_automation":     "monitor",
+        "mostrar":            "chevron-right",
+        "ocultar":            "chevron-left",
     }
 
     def __init__(self, name: str = "plugin", size: int = 20, color: str = "",
@@ -671,6 +686,31 @@ class SvgIcon(QLabel):
                 pm = QPixmap(self._icon_size, self._icon_size)
                 pm.fill(Qt.GlobalColor.transparent)
                 return pm
+
+
+# ---------------------------------------------------------------------------
+# Icono por plugin/módulo — resuelve el SVG dedicado si existe
+# ---------------------------------------------------------------------------
+# Mapeo: plugin_id -> nombre lógico del icono SVG en assets/icons/
+PLUGIN_SVG: dict[str, str] = {
+    "asistencia_masiva":  "asistencia",
+    "dashboard_hhee":     "dashboard_hhee",
+    "horas_extras_masiva":"horas_extras_masiva",
+    "sap_automation":     "sap_automation",
+}
+
+
+def plugin_icon(plugin_id: str, size: int, color: str = ACCENT,
+                fallback: str = "package") -> Icon:
+    """Devuelve el widget de icono para un plugin.
+
+    Si el plugin tiene un SVG dedicado en assets/icons/, lo usa (vector, sin
+    rasterizar); si no, devuelve el Icon vectorial genérico dado por `fallback`.
+    """
+    svg_name = PLUGIN_SVG.get(plugin_id)
+    if svg_name and SvgIcon._FILE_MAP.get(svg_name):
+        return SvgIcon(svg_name, size, color)
+    return Icon(fallback or "package", size, color)
 
 
 def get_icon_char(char: str = "", color: str = "", size: int = 16) -> QLabel:

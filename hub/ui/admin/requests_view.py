@@ -49,6 +49,7 @@ class RequestsView(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._requests: list[dict] = []
+        self._current_status = "all"
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -56,10 +57,10 @@ class RequestsView(QWidget):
         main_layout.setContentsMargins(24, 24, 24, 24)
         main_layout.setSpacing(16)
 
-        header = QLabel("Solicitudes")
-        header.setFont(get_font(20, bold=True))
-        header.setStyleSheet(f"color: {Theme.text()};")
-        main_layout.addWidget(header)
+        self._header = QLabel("Solicitudes")
+        self._header.setFont(get_font(20, bold=True))
+        self._header.setStyleSheet(f"color: {Theme.text()};")
+        main_layout.addWidget(self._header)
 
         status_row = QHBoxLayout()
         self._status_buttons: list[tuple[str, QPushButton]] = []
@@ -90,9 +91,21 @@ class RequestsView(QWidget):
 
     def set_requests(self, requests: list[dict]) -> None:
         self._requests = requests
-        self._filter_by_status("all")
+        self._filter_by_status(self._current_status)
+
+    def refresh_style(self) -> None:
+        """Re-aplica el tema activo (claro/oscuro) a todos los widgets de la vista."""
+        self.setStyleSheet(f"QWidget {{ background-color: {Theme.bg()}; color: {Theme.text()}; }}")
+        self._header.setStyleSheet(f"color: {Theme.text()};")
+        for status, btn in self._status_buttons:
+            if status == self._current_status:
+                btn.setStyleSheet(NEXAStyles.primary_button())
+            else:
+                btn.setStyleSheet(NEXAStyles.secondary_button())
+        self._render()
 
     def _filter_by_status(self, status: str) -> None:
+        self._current_status = status
         for s, btn in self._status_buttons:
             if s == status:
                 btn.setStyleSheet(NEXAStyles.primary_button())

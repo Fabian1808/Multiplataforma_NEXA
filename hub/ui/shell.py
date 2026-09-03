@@ -580,7 +580,7 @@ class Shell(QWidget):
         card_lay.addStretch()
         self._brand_row_layout.addWidget(self._logo_card, stretch=1)
 
-        self._collapse_btn = self._make_icon_btn("menu", "Contraer menú", self._toggle_sidebar)
+        self._collapse_btn = self._make_icon_btn("ocultar", "Contraer menú", self._toggle_sidebar)
         self._collapse_btn_icon = self._collapse_btn.icon
 
         self._brand_row_layout.addWidget(self._collapse_btn)
@@ -810,9 +810,10 @@ class Shell(QWidget):
                   else NEXAStyles.SIDEBAR_WIDTH)
         self._animate_sidebar_width(target)
         self._collapse_btn.setToolTip("Expandir menú" if self._sidebar_collapsed else "Contraer menú")
-        # Cambiar icono: chevron-right cuando está colapsado, hamburger cuando está expandido
+        # Cambiar icono: "mostrar" (chevron derecho) al contraer, "ocultar"
+        # (chevron izquierdo) al expandir — iconos SVG desde assets/icons/.
         if hasattr(self, "_collapse_btn_icon") and self._collapse_btn_icon:
-            new_icon = "chevron-right" if self._sidebar_collapsed else "menu"
+            new_icon = "mostrar" if self._sidebar_collapsed else "ocultar"
             self._collapse_btn_icon.set_icon(new_icon)
 
 

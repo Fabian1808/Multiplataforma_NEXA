@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 
 from .theme import Theme, ACCENT, ACCENT_BG, ACCENT_DARK_BG, is_dark, STATUS_COLORS, PLUGIN_STATUS_BADGES
 from .styles import NEXAStyles, get_font
-from .icons import Icon
+from .icons import Icon, SvgIcon, plugin_icon, PLUGIN_SVG
 
 class StatusBadge(QLabel):
     def __init__(self, status: str, parent: QWidget | None = None) -> None:
@@ -132,11 +132,13 @@ class AppCard(QFrame):
                 logo_lbl.setStyleSheet("background: transparent; border: none;")
                 il.addWidget(logo_lbl, 0, Qt.AlignmentFlag.AlignCenter)
             else:
-                icon_lbl = Icon(icon_name, 22)
-                icon_lbl.set_color(ACCENT)
-                il.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignCenter)
+                ico = plugin_icon(plugin_id, 24, ACCENT, icon_name or "package")
+                il.addWidget(ico, 0, Qt.AlignmentFlag.AlignCenter)
+        elif plugin_id in PLUGIN_SVG:
+            ico = plugin_icon(plugin_id, 26, ACCENT)
+            il.addWidget(ico, 0, Qt.AlignmentFlag.AlignCenter)
         else:
-            icon_lbl = Icon(icon_name, 22)
+            icon_lbl = Icon(icon_name or "package", 22)
             icon_lbl.set_color(ACCENT)
             il.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignCenter)
             
